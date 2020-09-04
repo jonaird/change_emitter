@@ -1,18 +1,36 @@
 part of 'change_emitter_base.dart';
 
-///A [ChangeEmitter] that implements the list interface. Notifying listeners of changes must be done
-///manually by calling [notifyChange] after performing a change on the list. If there haven't been any
-///updates to the list since the last time [notifyChange] was called, then
-///nothing will happen.
+///A [ChangeEmitter] implementation of a list. Modifying the list will not
+///cause it to emit changes. When you would like the list to emit changes, call [emit].
+///This lets you perform multiple changes to a list before updating your UI or other
+///parts of state. Calling [emit] will not emit changes if there have been no changes.
+///
+///```
+///var list = ListEmitter([1,3,5]);
+///list.addAll([1,8,2,8]);
+///list.retainWhere((elem)=>elem%2==0);
+///
+///list.emit() // emits change
+///```
+///
 class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   final List<E> _list;
   final _changes = <ListModification<E>>[];
   bool _dirty = false;
-  final bool _observable;
 
-  ListEmitter(List<E> list, {bool observable = false})
-      : _list = List.from(list),
-        _observable = observable;
+  ///Initializes with a list of elements.
+  ListEmitter(List<E> list, {this.emitDetailedChanges = false})
+      : _list = List.from(list);
+
+  ///{@template detailed}
+  ///Whether to emit changes that include detailed information about the specific change.
+  ///Defaults to false which will emit the same cached change object to
+  ///minimize garbage collection.
+  ///{@endtemplate}
+  ///
+  ///Detailed changes will include a list of modifications.
+  ///See [ListChange.modifications].
+  final bool emitDetailedChanges;
 
   E operator [](int index) {
     assert(!isDisposed);
@@ -24,7 +42,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     var oldValue = _list[index];
     if (oldValue != value) {
       _list[index] = value;
-      if (_observable)
+      if (emitDetailedChanges)
         _changes.add(ListModification<E>(index, oldValue, value));
       _dirty = true;
     }
@@ -46,13 +64,16 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
       while (length != newLength) removeAt(newLength);
   }
 
-  ///Notifies listeners if there has been a change to the list since the last time it was called or the list was initialized.
+  ///Emits a change if the list has been modified since the last emit (or since it was initialized).
+  ///
+  ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void emit({bool quiet = false}) {
     assert(!isDisposed);
     if (_dirty && !quiet)
-      addChangeToStream(_observable ? ListChange(_changes) : ListChange.any());
+      addChangeToStream(
+          emitDetailedChanges ? ListChange(_changes) : ListChange.any());
     else if (_dirty)
-      addChangeToStream(_observable
+      addChangeToStream(emitDetailedChanges
           ? ListChange(_changes, quiet: true)
           : ListChange.any(quiet: true));
     _changes.clear();
@@ -67,7 +88,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.add(element);
     _dirty = true;
-    if (_observable) _changes.add(ListModification.insert(length, element));
+    if (emitDetailedChanges)
+      _changes.add(ListModification.insert(length, element));
   }
 
   ///Appends all objects of [iterable] to the end of this list.
@@ -89,7 +111,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.insert(index, element);
     _dirty = true;
-    if (_observable) _changes.add(ListModification.insert(index, element));
+    if (emitDetailedChanges)
+      _changes.add(ListModification.insert(index, element));
   }
 
   ///Removes the object at position [index] from this list.
@@ -104,7 +127,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     var removed = _list.removeAt(index);
     _dirty = true;
-    if (_observable) _changes.add(ListModification.remove(index, removed));
+    if (emitDetailedChanges)
+      _changes.add(ListModification.remove(index, removed));
     return removed;
   }
 
@@ -165,9 +189,9 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   }
 }
 
-///Notifications used by [ListEmitter] to notify listeners that it has changed. Can specify
-///a list of [modifications] (see [ListModification]) since the last time [ListEmitter.notifyChange] was called
-///or the [ListEmitter] was initialized.
+///A [Change] emitted by [ListEmitter]. If [ListEmitter.emitDetailedChanges] is set to true,
+///will provide a list of [ListModification]s. Otherwise, will recycle the same cached [new ListChange.any]
+///object to minimize garbage collection.
 class ListChange<E> extends ChangeWithAny {
   final List<ListModification<E>> modifications;
 
@@ -184,7 +208,7 @@ class ListChange<E> extends ChangeWithAny {
   }
 }
 
-///A single atomic modification on a [ListEmitter]. Can be an insert, a remove or replace at a particular [index].
+///A single atomic modification on a [ListEmitter]. Can be an [insert], a [remove] or replace at a particular [index].
 class ListModification<E> {
   ///The index at which the modification ocurred.
   final int index;
@@ -213,5 +237,6 @@ class ListModification<E> {
         isRemove = false,
         isInsert = true;
 
+  ///Whether the modification is both [insert] and [remove].
   bool get isReplace => isInsert && isRemove;
 }

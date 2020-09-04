@@ -41,11 +41,9 @@ abstract class ChangeEmitter<C extends Change> {
 ///of your state to update.
 @immutable
 abstract class Change {
-  ///{@template quiet}
   ///Whether a change will trigger a parent [EmitterContainer] to notify its listeners that it has changed.
   ///This can be useful if you want to batch changes to children of a [EmitterContainer] but have
   ///the container only emit one change.
-  ///{@endtemplate}
   final bool quiet;
   Change({this.quiet = false});
 }
@@ -92,15 +90,24 @@ abstract class ChangeWithAny extends Change {
 ///
 ///
 abstract class EmitterContainer extends ChangeEmitter<ContainerChange> {
-  final bool _observable;
-  EmitterContainer({bool observable = false}) : _observable = observable;
+  EmitterContainer({this.emitDetailedChanges = false});
+  var _stream;
 
-  get changes {
+  ///{@macro detailed}
+  ///
+  ///Detailed changes will include the child's [Change] object
+  ///that triggered the change as well as a reference to the child.
+  ///See [EmitterChange].
+  final bool emitDetailedChanges;
+
+  get changes => _stream ??= _getStream();
+
+  Stream<ContainerChange> _getStream() {
     var elements = emittingChildren ?? children;
     var streams = <Stream<ContainerChange>>[];
     for (var element in elements) {
       var baseStream = element.changes.where((event) => !event.quiet);
-      var stream = _observable
+      var stream = emitDetailedChanges
           ? baseStream.map((event) => ContainerChange(element, event))
           : baseStream.map((event) => ContainerChange.any());
       streams.add(stream);
@@ -108,7 +115,7 @@ abstract class EmitterContainer extends ChangeEmitter<ContainerChange> {
 
     streams.add(_controller.stream);
 
-    return StreamGroup.merge<ContainerChange>(streams);
+    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
@@ -123,6 +130,8 @@ abstract class EmitterContainer extends ChangeEmitter<ContainerChange> {
   Iterable<ChangeEmitter> get emittingChildren => null;
 
   ///Emits [new ContainerChange.any]).
+  ///
+  ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void emit({bool quiet = false}) =>
       addChangeToStream(ContainerChange.any(quiet: quiet));
 

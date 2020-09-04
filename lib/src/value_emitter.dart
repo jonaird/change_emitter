@@ -1,37 +1,28 @@
 part of 'change_emitter_base.dart';
 
-///A simple [ChangeEmitter] that stores a value, and notifies listeners whenever that value has changed. Similar to
-///[ValueNotifier] in the Flutter framework.
+///A simple [ChangeEmitter] that stores a value, emits a [ValueChange] whenever the value changes.
 class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   T _value;
-  final bool _observable;
+
   StreamSubscription _sub;
 
-  ValueEmitter(T value,
-      {
-
-      ///Whether to implement the observable pattern. If true, changes will provide the old and new values (see [ValueChange]).
-      ///Otherwise the same object will be reused over and over to minimize garbage collection.
-      bool observable = false})
+  ValueEmitter(T value, {bool observable = false})
       : _value = value,
-        _observable = observable;
+        emitDetailedChanges = observable;
 
   ///A [ValueEmitter] that reacts to changes from a list of [ChangeEmitter]s and calls a builder function to get its new value.
-  ValueEmitter.reactive(
-    ///Which [ChangeEmitter]s to react to.
-    Iterable<ChangeEmitter> reactTo,
-
-    ///Will be called to get new values reactively upon any change to [ChangeEmitter]s this ValueEmitter is reacting to.
-    T Function() withValue, {
-
-    ///Whether to implement the observable pattern. If true, changes will provide the old and new values (see [ValueChange]).
-    ///Otherwise the same object will be reused over and over to minimize garbage collection
-    bool observable = false,
-  }) : _observable = observable {
+  ValueEmitter.reactive(Iterable<ChangeEmitter> reactTo, T Function() withValue,
+      {this.emitDetailedChanges = false}) {
     value = withValue();
     _sub = StreamGroup.merge(reactTo.map((e) => e.changes))
         .listen((_) => value = withValue());
   }
+
+  ///{@macro detailed}
+  ///
+  ///Detailed changes will contain the new value and the old value that was replaced.
+  ///See [ValueChange].
+  final bool emitDetailedChanges;
 
   ///A stream of new values.
   Stream<T> get values => changes.map<T>((event) => _value);
@@ -47,19 +38,20 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
     if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
-      addChangeToStream(
-          _observable ? ValueChange(oldValue, newValue) : ValueChange.any());
+      addChangeToStream(emitDetailedChanges
+          ? ValueChange(oldValue, newValue)
+          : ValueChange.any());
     }
   }
 
-  ///Sets a new value and notifies listeners if the value is different than the old value but will
-  ///not trigger a parent [StateContainer] to notify its listeners.
+  ///Sets a new value and emits a change if the value is different than the old value but will
+  ///not trigger any parent [EmitterContainer] to emit a change.
   quietSet(T newValue) {
     assert(!isDisposed);
     if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
-      addChangeToStream(_observable
+      addChangeToStream(emitDetailedChanges
           ? ValueChange(oldValue, newValue, quiet: true)
           : ValueChange.any(quiet: true));
     }
@@ -71,16 +63,17 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
     return _value;
   }
 
-  ///Disposes resources and closes it's stream.
+  ///Disposes resources.
   @mustCallSuper
   void dispose() {
     _sub?.cancel();
-
     super.dispose();
   }
 }
 
-///Notifications broadcast by [ValueEmitter] to notify listeners upon a change to its value.
+///A [Change] emitted by [ValueEmitter]. If [ValueEmitter.emitDetailedChanges] is set to true,
+///will provide both the new value and the old value being replaced. Otherwise, will recycle the same cached [new ValueChange.any]
+///object to minimize garbage collection.
 class ValueChange<T> extends ChangeWithAny {
   ///The value being replaced.
   final T oldValue;
@@ -99,7 +92,7 @@ class ValueChange<T> extends ChangeWithAny {
         newValue = null,
         super(quiet: quiet, any: true);
 
-  ///A change notification that doesn't include information about the change. Will
+  ///A change notification that doesn't include detailed information about the change. Will
   ///recycle the same object to minimize GC.
   factory ValueChange.any({bool quiet = false}) {
     if (quiet) return ValueChange<T>._any(quiet: true);

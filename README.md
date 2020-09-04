@@ -1,6 +1,6 @@
 # change_emitter
  
-ChangeEmitter is composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) in the Flutter framework that can be used with Provider for state management. Instead of maintaining a list of callbacks, ChangeEmitters use a stream of changes which can contain specific information about changes and are easier to manipulate. You can use ChangeEmitters to implement the observable pattern for example. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions.
+ChangeEmitter is a highly composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) in the Flutter framework that can be used with Provider for state management. Instead of maintaining a list of callbacks, ChangeEmitters use a stream of change objects which can contain specific information about changes and are easier to manipulate. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions.
 
 ## Installation  
 To use ChangeEmitter, add it to your dependencies in your pubspec.yaml file as well as the provider package: 
@@ -16,16 +16,16 @@ To get started quickly check out the [example](https://github.com/jonaird/change
  
 And the [API documentation](https://pub.dev/documentation/change_emitter/latest/upstate/upstate-library.html)
 
-### ChangeEmitters
+### Built in ChangeEmitters
   
-There are four built in ChangeEmitters that constitute primitive types.
+Comes with ChangeEmitters for basic primitives and way to compose them.
 
 ValueEmitter:  
 ```
-//ValueEmitters hold simple values and notify listeners upon a change
+//ValueEmitters hold simple values
 var toggle = ValueEmitter(true);
 
-//All ChangeEmitters expose a stream of change notifications
+//All ChangeEmitters expose a stream of changes
 var subscription = boolToggle.changes.listen((change)=>print('toggle switched'));
 
 //set a new value
@@ -51,22 +51,22 @@ intList.retainWhere((element)=>element%2==0);
   
 var subscription = intList.notifications.listen((notif)=>print('changed'));
 
-//ListEmitter will only emit changes when you call notifyChange but
+//ListEmitter will only emit changes when you call emit but will
 //only do so if there has actually been a change.
 //This allows you to perform multiple changes to the list before updating your UI
-intList.notifyChange();  //prints 'changed'
-intList.notifyChange();  //does nothing
+intList.emit();  //prints 'changed'
+intList.emit();  //does nothing
 subscription.cance();
 intList.dispose();  
 ```  
   
 MapEmitter:  
 ```
-//A map that will notify listeners on a change.
+//A map implementation
 var colorMap = MapEmitter<String,Color>({});  
 
 colorMap['red']=Colors.red;  
-colorMap.notifyChange();  
+colorMap.emit();  
   
 colorMap.dispose();
 ```  
@@ -74,7 +74,7 @@ colorMap.dispose();
 EmitterContainer:  
 ```
 //EmitterContainer allows you to compose multiple ChangeEmitters into a single unit
-//(that is also a ChangeEmitter) 
+//which is also a ChangeEmitter 
 
 class TextState extends EmitterContainer {
   final text = ValueEmitter('Some text');  
@@ -91,24 +91,24 @@ class TextState extends EmitterContainer {
   
   //If you just want a subset of children to notify listeners you can optionally override this getter.   
   //@override  
-  //get notifyingChildren => [text, bold];  
+  //get emittingChildren => [text, bold];  
 }  
   
 var myTextState = TextState();  
   
-var subscription = myTextState.notifications.listen((notif)=>'changed!');  
+var subscription = myTextState.changes.listen((notif)=>'changed!');  
   
 myTestState.italic.value = true;  //prints 'changed!'
   
 //We can notify listeners without changing any children:  
-myTextState.notifyChange(); //prints 'changed!' 
+myTextState.emit(); //prints 'changed!' 
   
-//We can also change one of the children's values without notifying listeners. This will 
-//notify any of the child's listeners however:  
+//We can also change one of the children's values without causing the container to emit a change.
+//The child will still emit a change however:  
 myTextState.bold.quietSet(true); //nothing printed to the console  
   
 //You can do this for ListEmitter/Map/Containers as well
-//someListEmitter.notifyChange(quiet: true);
+//someListEmitter.emit(quiet: true);
   
 //dispose of resources. 
 subscription.cancel();
@@ -123,7 +123,7 @@ ChangeEmitter uses the Provider package along with some extra classes to provide
 //This will automatically dispose your state when removed from the widget tree
 
 runApp(  
-  StateElementProvider(  
+  ChangeEmitterProvider(  
     create: (_) => TextState(),  
     child: MyApp(),  
   )  
@@ -139,7 +139,7 @@ class MyApp extends StatelessWidget{
     return Column(
       children:[
         //You can update your UI based on just a part of your state using a selector  
-        StateElementSelector<TextState,ValueEmitter<bool>>(  
+        ChangeEmitterSelector<TextState,ValueEmitter<bool>>(  
           selector: (_, state) => state.bold  
           builder: (_, bold, __){  
             return Switch(  

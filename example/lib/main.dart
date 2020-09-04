@@ -4,6 +4,7 @@ import 'package:change_emitter/change_emitter.dart';
 
 void main() {
   runApp(
+    ///We'll use the Provider package to provide state.
     ChangeEmitterProvider(
       create: (_) => TextState(),
       child: MyApp(),
@@ -17,8 +18,13 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: Text('Upstate Example')),
-        body:
-            Center(child: Container(width: 500, height: 700, child: AppBody())),
+        body: Center(
+          child: Container(
+            width: 500,
+            height: 700,
+            child: AppBody(),
+          ),
+        ),
       ),
     );
   }
@@ -127,7 +133,7 @@ class AppBody extends StatelessWidget {
         FlatButton(
           child: Text('clear'),
           onPressed: () => context.read<TextState>().textInput.text.value = '',
-        )
+        ),
       ],
     );
   }

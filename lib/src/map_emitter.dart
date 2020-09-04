@@ -1,30 +1,33 @@
 part of 'change_emitter_base.dart';
 
-///A [ChangeEmitter] that implements the map interface. Notifying listeners of changes must be done
-///intentionally by calling [notifyChange] after performing a change on the list. If the list hasn't change
-///since the last time [notifyChange] was called or the map was initialized, then
-///nothing will happen.
+///A [ChangeEmitter] implementation of a map. Modifying a [MapEmitter] won't automatically
+///emit a change. To emit a change after it has been modified, call [emit].
 class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
     with MapMixin<K, V> {
   Map<K, V> _map;
-  final bool _observable;
+
   final _changes = <MapModification<K, V>>[];
   bool _dirty = false;
 
-  MapEmitter(Map<K, V> map, {bool observable = false})
-      : _map = Map.from(map),
-        _observable = observable;
+  MapEmitter(Map<K, V> map, {this.emitDetailedChanges = false})
+      : _map = Map.from(map);
 
-  ///Notifies listeners if there has been a change to the map since the last time it was called or the list was initialized.
-  emit({
-    ///{@macro quiet}
-    bool quiet = false,
-  }) {
+  ///{@macro detailed}
+  ///
+  ///Detailed changes will include a list of modifications.
+  ///See [MapChange.modifications].
+  final bool emitDetailedChanges;
+
+  ///Emits a change if the map has been modified since the last emit (or since it was initialized).
+  ///
+  ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
+  emit({bool quiet = false}) {
     assert(!isDisposed);
     if (_dirty && !quiet)
-      addChangeToStream(_observable ? MapChange(_changes) : MapChange.any());
+      addChangeToStream(
+          emitDetailedChanges ? MapChange(_changes) : MapChange.any());
     else if (_dirty)
-      addChangeToStream(_observable
+      addChangeToStream(emitDetailedChanges
           ? MapChange(_changes, quiet: true)
           : MapChange.any(quiet: true));
     _changes.clear();
@@ -57,12 +60,13 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
       var oldVal = _map[key];
       if (value != oldVal) {
         _map[key] = value;
-        if (_observable) _changes.add(MapModification(key, oldVal, value));
+        if (emitDetailedChanges)
+          _changes.add(MapModification(key, oldVal, value));
         _dirty = true;
       }
     } else {
       _map[key] = value;
-      if (_observable) _changes.add(MapModification.insert(key, value));
+      if (emitDetailedChanges) _changes.add(MapModification.insert(key, value));
       _dirty = true;
     }
   }
@@ -74,7 +78,7 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
   void clear() {
     if (keys.length > 0) {
       _dirty = true;
-      if (_observable)
+      if (emitDetailedChanges)
         for (var key in _map.keys)
           _changes.add(MapModification.remove(key, _map[key]));
       _map.clear();
@@ -92,16 +96,17 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
     V removed;
     if (keys.contains(key)) {
       removed = _map.remove(key);
-      if (_observable) _changes.add(MapModification.remove(key, removed));
+      if (emitDetailedChanges)
+        _changes.add(MapModification.remove(key, removed));
       _dirty = true;
     }
     return removed;
   }
 }
 
-///Notifications used by [MapEmitter] to notify listeners upon a change. Can include a list of [modifications]
-///(see [MapModification]) that are either inserts, removes or both. Otherwise, will recycle existing objects
-///to minimize GC (see [new MapChange.any]).
+///A [Change] emiited by [MapEmitter]. If [MapEmitter.emitDetailedChanges] is set to true,
+///will provide a list of [MapModification]s. Otherwise, will recycle the same cached [new ListChange.any]
+///object to minimize garbage collection.
 class MapChange<K, V> extends ChangeWithAny {
   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
   final List<MapModification<K, V>> modifications;
