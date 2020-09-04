@@ -1,6 +1,6 @@
 name: change_emitter
 description: A flexible, highly composable alternative to ChangeNotifier for Flutter
-version: 0.9.0
+version: 0.9.1
 
 homepage: "https://github.com/jonaird/change_emitter"
 repository: "https://github.com/jonaird/change_emitter"
@@ -10,7 +10,7 @@ environment:
   flutter: ">=1.17.0 <2.0.0"
 
 dependencies:
-  async: ^2.5.0
+  async: ^2.4.2
   provider: ^4.3.2
   flutter:
     sdk: flutter
