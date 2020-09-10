@@ -119,7 +119,7 @@ class AppBody extends StatelessWidget {
             ),
           )
         ]),
-        MyText(),
+        DisplayText(),
         ChangeEmitterSelector(
           selector: (_, TextState state) => state.isRedAndBold,
           builder: (_, isRedAndBold, __) =>
@@ -140,7 +140,7 @@ class AppBody extends StatelessWidget {
 }
 
 ///Here is the part we care about, correctly displaying our text.
-class MyText extends StatelessWidget {
+class DisplayText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ///We can use a vanilla [Consumer] from the Provider package which will call the builder whenever [TextState]
