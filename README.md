@@ -14,7 +14,7 @@ dependencies:
 ## Usage 
 To get started quickly check out the [example](https://github.com/jonaird/change_emitter/tree/master/example/lib). 
  
-And the [API documentation](https://pub.dev/documentation/change_emitter/latest/upstate/upstate-library.html)
+And the [API documentation](https://pub.dev/documentation/change_emitter/latest/change_emitter/change_emitter-library.html)
 
 ### Built in ChangeEmitters
   
