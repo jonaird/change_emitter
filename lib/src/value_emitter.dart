@@ -71,6 +71,13 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   }
 }
 
+extension Toggleable on ValueEmitter<bool> {
+  ///Toggle a boolean value.
+  void toggle() {
+    this.value = !this.value;
+  }
+}
+
 ///A [Change] emitted by [ValueEmitter]. If [ValueEmitter.emitDetailedChanges] is set to true,
 ///will provide both the new value and the old value being replaced. Otherwise, will recycle the same cached [new ValueChange.any]
 ///object to minimize garbage collection.
