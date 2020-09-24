@@ -166,7 +166,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   /// The provided range, given by [start] and [end], must be valid. A range from [start] to [end] is valid if 0 <= start <= end <= len, where len is this list's length. The range starts at start and has length end - start. An empty range (with end == start) is valid.
   @override
   void removeRange(int start, int end) {
-    for (var i = start; i < end; i++) removeAt(i);
+    assert(0 <= start && start <= end && end <= length);
+    for (var i = start; i < end; i++) removeAt(start);
   }
 
   ///Removes the objects in the range [start] inclusive to [end] exclusive and inserts the contents of [replacement] in its place.
