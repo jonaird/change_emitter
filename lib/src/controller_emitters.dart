@@ -40,3 +40,72 @@ class TextEditingEmitter extends EmitterContainer {
     super.dispose();
   }
 }
+
+class ScrollEmitter extends EmitterContainer {
+  ScrollEmitter({
+    double initialScrollOffset = 0.0,
+    bool keepScrollOffset = true,
+    String debugLabel,
+  })  : controller = ScrollController(
+            initialScrollOffset: initialScrollOffset,
+            keepScrollOffset: keepScrollOffset,
+            debugLabel: debugLabel),
+        offset = OffsetEmitter(initialScrollOffset) {
+    offset.changes.where((change) => !change.setByController).listen((change) {
+      controller.removeListener(_listener);
+      controller.jumpTo(change.newValue);
+      controller.addListener(_listener);
+    });
+    controller.addListener(_listener);
+  }
+
+  _listener() => offset._controllerSet(controller.offset);
+
+  final ScrollController controller;
+  final OffsetEmitter offset;
+
+  void jumpTo(double offset) => this.offset.value = offset;
+
+  void animateTo(double offset, {Duration duration, Curve curve}) =>
+      controller.animateTo(offset, duration: duration, curve: curve);
+
+  get children => [offset];
+
+  dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+}
+
+class OffsetEmitter extends ValueEmitter<double> {
+  OffsetEmitter(double initialOffset) : super(initialOffset);
+
+  Stream<OffsetChange> get changes =>
+      super.changes.map<OffsetChange>((change) => change);
+
+  void _controllerSet(double newValue) {
+    if (value != newValue) {
+      var oldValue = value;
+      setValue(newValue);
+      addChangeToStream(OffsetChange(oldValue, newValue, true));
+    }
+  }
+
+  set value(double newValue) {
+    if (value != newValue) {
+      var oldValue = value;
+      setValue(newValue);
+      addChangeToStream(OffsetChange(oldValue, newValue, false));
+    }
+  }
+}
+
+class OffsetChange extends ValueChange<double> {
+  OffsetChange(double oldValue, double newValue, this.setByController)
+      : super(
+          oldValue,
+          newValue,
+        );
+
+  final bool setByController;
+}

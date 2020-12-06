@@ -20,7 +20,10 @@ part 'controller_emitters.dart';
 ///This library also comes with wigdets to use with the [Provider package](https://github.com/rrousselGit/provider)
 ///to provide and consume state for your app. See [ChangeEmitterProvider] and [ChangeEmitterSelector].
 abstract class ChangeEmitter<C extends Change> {
-  final _controller = StreamController<C>.broadcast();
+  ChangeEmitter({bool useSyncronousStream = false})
+      : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
+
+  final _controller;
 
   ///Used by subclasses to broadcast [Change]s.
   @protected
@@ -36,6 +39,8 @@ abstract class ChangeEmitter<C extends Change> {
   ///Whether [this] has been disposed.
   bool get isDisposed => _controller.isClosed;
 }
+
+
 
 ///An immutable class used by [ChangeEmitter]s to trigger UI or other components
 ///of your state to update.
@@ -89,7 +94,8 @@ abstract class ChangeWithAny extends Change {
 ///```
 ///
 ///
-abstract class EmitterContainer extends ChangeEmitter<ContainerChange> {
+abstract class EmitterContainer<C extends ContainerChange>
+    extends ChangeEmitter<C> {
   EmitterContainer({this.emitDetailedChanges = false});
   var _stream;
 
@@ -102,32 +108,40 @@ abstract class EmitterContainer extends ChangeEmitter<ContainerChange> {
 
   get changes => _stream ??= _getStream();
 
-  Stream<ContainerChange> _getStream() {
+  ///override this method in order to create and use your own subclass of [ContainerChange]
+  @protected
+  C controllerChangeFromChildChange(ChangeEmitter child, Change childChange) {
+    return emitDetailedChanges
+        ? ContainerChange(child, childChange)
+        : ContainerChange.any();
+  }
+
+  Stream<C> _getStream() {
     var elements = emittingChildren ?? children;
-    var streams = <Stream<ContainerChange>>[];
+    var streams = <Stream<C>>[];
     for (var element in elements) {
       var baseStream = element.changes.where((event) => !event.quiet);
-      var stream = emitDetailedChanges
-          ? baseStream.map((event) => ContainerChange(element, event))
-          : baseStream.map((event) => ContainerChange.any());
+      var stream = baseStream
+          .map((event) => controllerChangeFromChildChange(element, event));
+
       streams.add(stream);
     }
 
     streams.add(_controller.stream);
 
-    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
+    return StreamGroup.merge<C>(streams).asBroadcastStream();
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
   ///will dispose all children when this class is disposed and will emit a [ContainerChange]
   ///whenever any of the children change so that UI or other elements of your state
   ///can update reactively. If you only want a subset of
-  ///the children to trigger change changes, override [emittingChildren].
-  Iterable<ChangeEmitter> get children;
+  ///the children to trigger changes, override [emittingChildren].
+  List<ChangeEmitter> get children;
 
   ///A list of [children] that should trigger this container to emit changes. If you want all children
   ///to trigger changes, then you don't need to override this getter.
-  Iterable<ChangeEmitter> get emittingChildren => null;
+  List<ChangeEmitter> get emittingChildren => null;
 
   ///Emits [new ContainerChange.any]).
   ///

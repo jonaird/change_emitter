@@ -1,3 +1,12 @@
+## [0.9.7] - Added ValueEmitter.unmodifiableView constructor
+
+## [0.9.6] - Fixed bug in ListEmitter.removeWhere
+
+## [0.9.5] - Added protected method containerChangeFromChildChange to EmitterContainer
+
+Overriding this method in a subclass of EmitterContainer allows you to use your own custom
+subclass of ContainerChange.
+
 ## [0.9.4] - Fixed bug in ListEmitter.removeRange
 
 ## [0.9.3] - Fixed link to docs

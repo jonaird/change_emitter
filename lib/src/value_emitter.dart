@@ -2,21 +2,32 @@ part of 'change_emitter_base.dart';
 
 ///A simple [ChangeEmitter] that stores a value, emits a [ValueChange] whenever the value changes.
 class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
-  T _value;
-
-  StreamSubscription _sub;
-
-  ValueEmitter(T value, {bool observable = false})
+  ValueEmitter(T value, {this.emitDetailedChanges = false})
       : _value = value,
-        emitDetailedChanges = observable;
+        _isUnmodifiableView = false;
 
   ///A [ValueEmitter] that reacts to changes from a list of [ChangeEmitter]s and calls a builder function to get its new value.
-  ValueEmitter.reactive(Iterable<ChangeEmitter> reactTo, T Function() withValue,
-      {this.emitDetailedChanges = false}) {
+  ValueEmitter.reactive(List<ChangeEmitter> reactTo, T Function() withValue,
+      {this.emitDetailedChanges = false})
+      : _isUnmodifiableView = true,
+        super(useSyncronousStream: true) {
     value = withValue();
     _sub = StreamGroup.merge(reactTo.map((e) => e.changes))
-        .listen((_) => value = withValue());
+        .listen((_) => _setValueWithoutUnmodifiableCheck(withValue()));
   }
+
+  ValueEmitter.unmodifiableView(ValueEmitter<T> emitter)
+      : _isUnmodifiableView = true,
+        _value = emitter.value,
+        emitDetailedChanges = emitter.emitDetailedChanges,
+        super(useSyncronousStream: true) {
+    _sub = emitter.values
+        .listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
+  }
+
+  T _value;
+  final bool _isUnmodifiableView;
+  StreamSubscription _sub;
 
   ///{@macro detailed}
   ///
@@ -24,17 +35,29 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   ///See [ValueChange].
   final bool emitDetailedChanges;
 
+  ValueEmitter<T> _unmodifiableView;
+
+  ValueEmitter<T> get unmodifiableView {
+    if (_isUnmodifiableView)
+      throw ('This value emitter is already an unmodifiable view');
+    return _unmodifiableView ??= ValueEmitter<T>.unmodifiableView(this);
+  }
+
   ///A stream of new values.
-  Stream<T> get values => changes.map<T>((event) => _value);
+  Stream<T> get values => changes.map<T>((event) => value);
 
   ///Whether the current value is null.
-  bool get isNull => _value == null;
+  bool get isNull => value == null;
 
-  bool get isNotNull => _value != null;
+  bool get isNotNull => value != null;
 
-  ///Sets a new value and notifies listeners if the value is different than the old value.
-  set value(T newValue) {
+  ///For subclasses to set values without emitting a change
+  @protected
+  void setValue(T newValue) => _value = newValue;
+
+  void _setValueWithoutUnmodifiableCheck(T newValue) {
     assert(!isDisposed);
+
     if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
@@ -44,10 +67,19 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
     }
   }
 
+  ///Sets a new value and notifies listeners if the value is different than the old value.
+  set value(T newValue) {
+    if (_isUnmodifiableView)
+      throw ('Tried to modify an unmodifiable value emitter view');
+    _setValueWithoutUnmodifiableCheck(newValue);
+  }
+
   ///Sets a new value and emits a change if the value is different than the old value but will
   ///not trigger any parent [EmitterContainer] to emit a change.
   quietSet(T newValue) {
     assert(!isDisposed);
+    if (_isUnmodifiableView)
+      throw ('Tried to modify an unmodifiable value emitter view');
     if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
@@ -67,6 +99,7 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   @mustCallSuper
   void dispose() {
     _sub?.cancel();
+    _unmodifiableView?.dispose();
     super.dispose();
   }
 }

@@ -151,7 +151,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   void removeWhere(bool Function(E element) test) {
     assert(!isDisposed);
-    for (E elem in _list.where(test)) remove(elem);
+    for (E elem in List.from(_list.where(test))) remove(elem);
   }
 
   ///Removes all objects from this list that fail to satisfy [test].
