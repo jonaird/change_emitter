@@ -7,11 +7,13 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
         _isUnmodifiableView = false;
 
   ///A [ValueEmitter] that reacts to changes from a list of [ChangeEmitter]s and calls a builder function to get its new value.
-  ValueEmitter.reactive(List<ChangeEmitter> reactTo, T Function() withValue,
-      {this.emitDetailedChanges = false})
+  ValueEmitter.reactive(
+      {List<ChangeEmitter> reactTo,
+      T Function() withValue,
+      this.emitDetailedChanges = false})
       : _isUnmodifiableView = true,
         super(useSyncronousStream: true) {
-    value = withValue();
+    _setValueWithoutUnmodifiableCheck(withValue());
     _sub = StreamGroup.merge(reactTo.map((e) => e.changes))
         .listen((_) => _setValueWithoutUnmodifiableCheck(withValue()));
   }
