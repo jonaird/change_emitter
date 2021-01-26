@@ -1,3 +1,5 @@
+## [0.9.8] - added ListEmitter.removeLast and EmitterList
+
 ## [0.9.7] - Added ValueEmitter.unmodifiableView constructor
 
 ## [0.9.6] - Fixed bug in ListEmitter.removeWhere

@@ -7,7 +7,7 @@ import 'package:change_emitter/change_emitter.dart';
 
 var eq = DeepCollectionEquality();
 void main() {
-  test('ListEmitter test', () {
+  test('ListEmitter test of removeRange', () {
     var list = [1, 2, 3, 4, 5, 6];
     var listEmitter = ListEmitter(list);
 
@@ -22,6 +22,15 @@ void main() {
     var list = ListEmitter([1, 2, 3, 4]);
     list.removeWhere((element) => element == 1);
     expect(eq.equals(list, [2, 3, 4]), true);
+  });
+
+  test('EmitterList disposes of removed children', () async {
+    var emitter = ValueEmitter(1);
+    var list = EmitterList([emitter]);
+    list.removeLast();
+    list.emit();
+    await Future.delayed(Duration(milliseconds: 200));
+    expect(emitter.isDisposed, true);
   });
 
   testWidgets('scroll emitter doesnt duplicate changes',

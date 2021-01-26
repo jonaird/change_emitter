@@ -70,8 +70,9 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   void emit({bool quiet = false}) {
     assert(!isDisposed);
     if (_dirty && !quiet)
-      addChangeToStream(
-          emitDetailedChanges ? ListChange(_changes) : ListChange.any());
+      addChangeToStream(emitDetailedChanges
+          ? ListChange(List.from(_changes))
+          : ListChange.any());
     else if (_dirty)
       addChangeToStream(emitDetailedChanges
           ? ListChange(_changes, quiet: true)
@@ -154,6 +155,16 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     for (E elem in List.from(_list.where(test))) remove(elem);
   }
 
+  ///Pops and returns the last object in this list.
+  ///
+  ///The list must not be empty.
+  @override
+  E removeLast() {
+    var last = this.last;
+    removeAt(length - 1);
+    return last;
+  }
+
   ///Removes all objects from this list that fail to satisfy [test].
   ///
   ///An object [o] satisfies [test] if [test(o)] is true.
@@ -207,6 +218,10 @@ class ListChange<E> extends ChangeWithAny {
     if (quiet) return ListChange<E>._any(quiet: true);
     return _cache[E] ??= ListChange<E>._any();
   }
+
+  String toString() {
+    return "ListChange with the following modifications: ${modifications.toString()}";
+  }
 }
 
 ///A single atomic modification on a [ListEmitter]. Can be an [insert], a [remove] or replace at a particular [index].
@@ -238,6 +253,30 @@ class ListModification<E> {
         isRemove = false,
         isInsert = true;
 
+  String toString() =>
+      'Modification at index: $index, insert: $insert, remove: $remove';
+
   ///Whether the modification is both [insert] and [remove].
   bool get isReplace => isInsert && isRemove;
+}
+
+/// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
+/// elements that get removed from the list and all remaining elements in the list when it is disposed.
+class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> {
+  StreamSubscription _sub;
+  EmitterList(List<E> list) : super(list, emitDetailedChanges: true) {
+    _sub = changes.listen(_onChange);
+  }
+
+  void _onChange(ListChange<E> change) {
+    for (var mod in change.modifications)
+      if (mod.isRemove && !this.contains(mod.remove)) mod.remove.dispose();
+  }
+
+  @mustCallSuper
+  void dispose() {
+    _sub.cancel();
+    this.forEach((element) => element.dispose());
+    super.dispose();
+  }
 }
