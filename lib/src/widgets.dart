@@ -52,7 +52,12 @@ class ChangeEmitterProvider<S extends ChangeEmitter>
     Widget child,
   }) : super(
           key: key,
-          create: create,
+          create: (BuildContext context) {
+            var emitter = create(context);
+            if (emitter is ParentEmitter)
+              (emitter as ParentEmitter).registerChildren();
+            return emitter;
+          },
           dispose: (context, S element) => element.dispose(),
           lazy: lazy,
           child: child,

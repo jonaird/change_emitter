@@ -25,6 +25,22 @@ abstract class ChangeEmitter<C extends Change> {
 
   final _controller;
 
+  ChangeEmitter _parent;
+
+  ChangeEmitter get parent => _parent;
+
+  @protected
+  T findAncestorOfExactType<T extends ChangeEmitter>() {
+    var ancestor = parent;
+    while (ancestor != null)
+      if (ancestor.runtimeType == T)
+        return ancestor;
+      else
+        ancestor = ancestor.parent;
+
+    throw ('Could not find ancestor of type $T');
+  }
+
   ///Used by subclasses to broadcast [Change]s.
   @protected
   void addChangeToStream(C change) => _controller.add(change);
@@ -39,8 +55,6 @@ abstract class ChangeEmitter<C extends Change> {
   ///Whether [this] has been disposed.
   bool get isDisposed => _controller.isClosed;
 }
-
-
 
 ///An immutable class used by [ChangeEmitter]s to trigger UI or other components
 ///of your state to update.
@@ -62,6 +76,10 @@ abstract class ChangeWithAny extends Change {
   final bool any;
   ChangeWithAny({@required bool quiet, @required this.any})
       : super(quiet: quiet);
+}
+
+abstract class ParentEmitter {
+  void registerChildren();
 }
 
 ///A [ChangeEmitter] that can be subclassed in order to compose multiple [ChangeEmitter]s into a single unit.
@@ -95,9 +113,15 @@ abstract class ChangeWithAny extends Change {
 ///
 ///
 abstract class EmitterContainer<C extends ContainerChange>
-    extends ChangeEmitter<C> {
+    extends ChangeEmitter<C> implements ParentEmitter {
   EmitterContainer({this.emitDetailedChanges = false});
-  var _stream;
+
+  void registerChildren() {
+    for (var child in children) {
+      child._parent = this;
+      if (child is ParentEmitter) (child as ParentEmitter).registerChildren();
+    }
+  }
 
   ///{@macro detailed}
   ///
@@ -105,6 +129,8 @@ abstract class EmitterContainer<C extends ContainerChange>
   ///that triggered the change as well as a reference to the child.
   ///See [EmitterChange].
   final bool emitDetailedChanges;
+
+  var _stream;
 
   get changes => _stream ??= _getStream();
 

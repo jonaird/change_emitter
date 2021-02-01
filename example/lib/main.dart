@@ -44,8 +44,8 @@ class TextState extends EmitterContainer {
     ///value using the builder. This means all we need to do is worry about setting the
     ///right color and value for bold and this will take care of itself!
     isRedAndBold = ValueEmitter.reactive(
-      [color, bold],
-      () => color.value == Colors.red && bold.value,
+      reactTo:[color, bold],
+      withValue:() => color.value == Colors.red && bold.value,
     );
   }
 

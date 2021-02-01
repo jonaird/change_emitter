@@ -6,6 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:change_emitter/change_emitter.dart';
 
 var eq = DeepCollectionEquality();
+
+class ExampleEmitter extends EmitterContainer {
+  final elist = EmitterList([]);
+
+  get children => [elist];
+}
+
 void main() {
   test('ListEmitter test of removeRange', () {
     var list = [1, 2, 3, 4, 5, 6];
@@ -31,6 +38,21 @@ void main() {
     list.emit();
     await Future.delayed(Duration(milliseconds: 200));
     expect(emitter.isDisposed, true);
+  });
+
+  test('ValueEmitter.reactive constructor works without throwing', () {
+    var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
+  });
+
+  test('findAncestorOfExactType works in deep heirarchies', () {
+    var example = ExampleEmitter();
+    var secondExample = ExampleEmitter();
+    example.registerChildren();
+    example.elist
+      ..add(secondExample)
+      ..emit();
+    var ancestor = secondExample.findAncestorOfExactType<ExampleEmitter>();
+    expect(example, ancestor);
   });
 
   testWidgets('scroll emitter doesnt duplicate changes',

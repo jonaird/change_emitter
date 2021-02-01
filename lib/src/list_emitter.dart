@@ -262,20 +262,28 @@ class ListModification<E> {
 
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
-class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> {
-  StreamSubscription _sub;
-  EmitterList(List<E> list) : super(list, emitDetailedChanges: true) {
-    _sub = changes.listen(_onChange);
+class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
+    implements ParentEmitter {
+  EmitterList(List<E> list) : super(list, emitDetailedChanges: true);
+
+  void registerChildren() {
+    for (var emitter in this) {
+      emitter._parent = this;
+      if (emitter is ParentEmitter)
+        (emitter as ParentEmitter).registerChildren();
+    }
   }
 
-  void _onChange(ListChange<E> change) {
-    for (var mod in change.modifications)
-      if (mod.isRemove && !this.contains(mod.remove)) mod.remove.dispose();
+  void emit({bool quiet = false}) {
+    for (var mod in _changes)
+      if (mod.isRemove && !this.contains(mod.remove))
+        mod.remove.dispose();
+      else if (mod.isInsert) mod.insert._parent = this;
+    super.emit(quiet: quiet);
   }
 
   @mustCallSuper
   void dispose() {
-    _sub.cancel();
     this.forEach((element) => element.dispose());
     super.dispose();
   }
