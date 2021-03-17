@@ -1,3 +1,6 @@
+## [0.9.11] - Emitter children are registered from top down rather than bottom up
+
+
 ## [0.9.10] - added method to find ancestors in the emitter tree
 
 ## [0.9.9] - Fixed bug in ValueEmitter.reactive constructor

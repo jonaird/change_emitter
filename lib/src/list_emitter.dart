@@ -58,8 +58,10 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
 
   set length(int newLength) {
     assert(!isDisposed);
-    if (newLength > newLength)
-      while (length != newLength) add(null);
+    if (newLength > length && null is E) //checks if E is nullable
+      while (length != newLength) (this as ListEmitter<E?>).add(null);
+    else if (newLength > length)
+      throw ('can\t set a larger list length for nonNullable generic type $E');
     else
       while (length != newLength) removeAt(newLength);
   }
@@ -141,7 +143,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   bool remove(element) {
     assert(!isDisposed);
-    var index = _list.indexOf(element);
+
+    var index = _list.indexOf(element as E);
     if (index > -1) removeAt(index);
     return index > -1;
   }
@@ -205,7 +208,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
 ///will provide a list of [ListModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
 class ListChange<E> extends ChangeWithAny {
-  final List<ListModification<E>> modifications;
+  final List<ListModification<E>>? modifications;
 
   static final _cache = <Type, ListChange>{};
 
@@ -216,7 +219,7 @@ class ListChange<E> extends ChangeWithAny {
         super(quiet: quiet, any: true);
   factory ListChange.any({bool quiet = false}) {
     if (quiet) return ListChange<E>._any(quiet: true);
-    return _cache[E] ??= ListChange<E>._any();
+    return (_cache[E] ??= ListChange<E>._any()) as ListChange<E>;
   }
 
   String toString() {
@@ -230,10 +233,10 @@ class ListModification<E> {
   final int index;
 
   ///The value inserted at the [index] if any.
-  final E insert;
+  final E? insert;
 
   ///The value removed at [index] if any.
-  final E remove;
+  final E? remove;
 
   ///Whether the modification is an insert operation.
   final bool isInsert;
@@ -275,10 +278,14 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
   }
 
   void emit({bool quiet = false}) {
-    for (var mod in _changes)
-      if (mod.isRemove && !this.contains(mod.remove))
-        mod.remove.dispose();
-      else if (mod.isInsert) mod.insert._parent = this;
+    for (var mod in _changes) {
+      //makes sure that a remove is really a remove and not a re-ordering before disposing
+      if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
+
+      mod.insert?._parent = this;
+      if (mod.insert is ParentEmitter)
+        (mod.insert as ParentEmitter).registerChildren();
+    }
     super.emit(quiet: quiet);
   }
 
@@ -287,4 +294,8 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
     this.forEach((element) => element.dispose());
     super.dispose();
   }
+}
+
+extension on Type {
+  bool get isNullable => toString()[toString().length - 1] == '?';
 }

@@ -8,12 +8,12 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
 
   ///A [ValueEmitter] that reacts to changes from a list of [ChangeEmitter]s and calls a builder function to get its new value.
   ValueEmitter.reactive(
-      {List<ChangeEmitter> reactTo,
-      T Function() withValue,
+      {required List<ChangeEmitter> reactTo,
+      required T Function() withValue,
       this.emitDetailedChanges = false})
       : _isUnmodifiableView = true,
         super(useSyncronousStream: true) {
-    _setValueWithoutUnmodifiableCheck(withValue());
+    _value = withValue();
     _sub = StreamGroup.merge(reactTo.map((e) => e.changes))
         .listen((_) => _setValueWithoutUnmodifiableCheck(withValue()));
   }
@@ -27,9 +27,9 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
         .listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
   }
 
-  T _value;
+  late T _value;
   final bool _isUnmodifiableView;
-  StreamSubscription _sub;
+  StreamSubscription? _sub;
 
   ///{@macro detailed}
   ///
@@ -37,7 +37,7 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   ///See [ValueChange].
   final bool emitDetailedChanges;
 
-  ValueEmitter<T> _unmodifiableView;
+  ValueEmitter<T>? _unmodifiableView;
 
   ValueEmitter<T> get unmodifiableView {
     if (_isUnmodifiableView)
@@ -118,10 +118,10 @@ extension Toggleable on ValueEmitter<bool> {
 ///object to minimize garbage collection.
 class ValueChange<T> extends ChangeWithAny {
   ///The value being replaced.
-  final T oldValue;
+  final T? oldValue;
 
   ///The new value.
-  final T newValue;
+  final T? newValue;
 
   //Recycles ValueEmitter.any to minimize GC.
   static final _anyCache = <Type, ValueChange>{};
@@ -129,8 +129,7 @@ class ValueChange<T> extends ChangeWithAny {
   ValueChange(this.oldValue, this.newValue, {bool quiet = false})
       : super(quiet: quiet, any: false);
   ValueChange._any({bool quiet = false})
-      : assert(quiet != null),
-        oldValue = null,
+      : oldValue = null,
         newValue = null,
         super(quiet: quiet, any: true);
 
@@ -139,6 +138,6 @@ class ValueChange<T> extends ChangeWithAny {
   factory ValueChange.any({bool quiet = false}) {
     if (quiet) return ValueChange<T>._any(quiet: true);
 
-    return _anyCache[T] ??= ValueChange<T>._any();
+    return (_anyCache[T] ??= ValueChange<T>._any()) as ValueChange<T>;
   }
 }

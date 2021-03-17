@@ -5,11 +5,11 @@ part of 'change_emitter_base.dart';
 ///of [Consumer] if you just need to update based on a part of your state.
 class ChangeEmitterSelector<S, E extends ChangeEmitter> extends StatefulWidget {
   final E Function(BuildContext context, S state) selector;
-  final Widget Function(BuildContext context, E value, Widget child) builder;
-  final Widget child;
+  final Widget Function(BuildContext context, E value, Widget? child) builder;
+  final Widget? child;
 
   ChangeEmitterSelector(
-      {@required this.selector, @required this.builder, this.child});
+      {required this.selector, required this.builder, this.child});
 
   @override
   _ChangeEmitterSelectorState<S, E> createState() =>
@@ -18,20 +18,25 @@ class ChangeEmitterSelector<S, E extends ChangeEmitter> extends StatefulWidget {
 
 class _ChangeEmitterSelectorState<S, E extends ChangeEmitter>
     extends State<ChangeEmitterSelector<S, E>> {
-  StreamSubscription _subscription;
-  E element;
+  late StreamSubscription _subscription;
+  late E element;
+
+  @override
+  void initState() {
+    var state = Provider.of<S>(context);
+    element = widget.selector(context, state);
+    _subscription = element.changes.listen((event) => setState(() {}));
+    super.initState();
+  }
 
   @override
   void didChangeDependencies() {
     var state = Provider.of<S>(context);
-    if (_subscription != null && widget.selector(context, state) != element) {
+    if (widget.selector(context, state) != element) {
       _subscription.cancel();
       element = widget.selector(context, state);
       _subscription = element.changes.listen((event) => setState(() {}));
       setState(() {});
-    } else if (_subscription == null) {
-      element = widget.selector(context, state);
-      _subscription = element.changes.listen((event) => setState(() {}));
     }
     super.didChangeDependencies();
   }
@@ -46,10 +51,10 @@ class _ChangeEmitterSelectorState<S, E extends ChangeEmitter>
 class ChangeEmitterProvider<S extends ChangeEmitter>
     extends InheritedProvider<S> {
   ChangeEmitterProvider({
-    Key key,
-    @required Create<S> create,
-    bool lazy,
-    Widget child,
+    Key? key,
+    required Create<S> create,
+    bool lazy = false,
+    Widget? child,
   }) : super(
           key: key,
           create: (BuildContext context) {
@@ -65,10 +70,9 @@ class ChangeEmitterProvider<S extends ChangeEmitter>
         );
 
   ChangeEmitterProvider.value({
-    Key key,
-    @required S value,
-    bool lazy,
-    Widget child,
+    Key? key,
+    required S value,
+    Widget? child,
   }) : super.value(
           key: key,
           value: value,

@@ -13,7 +13,7 @@ class TextEditingEmitter extends EmitterContainer {
   ///Control and read composition.
   final composing = ValueEmitter(TextRange.empty);
   final TextEditingController controller;
-  StreamSubscription _subscription;
+  late StreamSubscription _subscription;
 
   TextEditingEmitter({String text = ''})
       : text = ValueEmitter(text),
@@ -45,7 +45,7 @@ class ScrollEmitter extends EmitterContainer {
   ScrollEmitter({
     double initialScrollOffset = 0.0,
     bool keepScrollOffset = true,
-    String debugLabel,
+    String? debugLabel,
   })  : controller = ScrollController(
             initialScrollOffset: initialScrollOffset,
             keepScrollOffset: keepScrollOffset,
@@ -53,7 +53,7 @@ class ScrollEmitter extends EmitterContainer {
         offset = OffsetEmitter(initialScrollOffset) {
     offset.changes.where((change) => !change.setByController).listen((change) {
       controller.removeListener(_listener);
-      controller.jumpTo(change.newValue);
+      controller.jumpTo(change.newValue!);
       controller.addListener(_listener);
     });
     controller.addListener(_listener);
@@ -66,7 +66,8 @@ class ScrollEmitter extends EmitterContainer {
 
   void jumpTo(double offset) => this.offset.value = offset;
 
-  void animateTo(double offset, {Duration duration, Curve curve}) =>
+  void animateTo(double offset,
+          {required Duration duration, required Curve curve}) =>
       controller.animateTo(offset, duration: duration, curve: curve);
 
   get children => [offset];
@@ -81,7 +82,7 @@ class OffsetEmitter extends ValueEmitter<double> {
   OffsetEmitter(double initialOffset) : super(initialOffset);
 
   Stream<OffsetChange> get changes =>
-      super.changes.map<OffsetChange>((change) => change);
+      super.changes.map<OffsetChange>((change) => change as OffsetChange);
 
   void _controllerSet(double newValue) {
     if (value != newValue) {

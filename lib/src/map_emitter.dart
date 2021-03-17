@@ -61,7 +61,7 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
       if (value != oldVal) {
         _map[key] = value;
         if (emitDetailedChanges)
-          _changes.add(MapModification(key, oldVal, value));
+          _changes.add(MapModification(key, oldVal!, value));
         _dirty = true;
       }
     } else {
@@ -79,8 +79,8 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
     if (keys.length > 0) {
       _dirty = true;
       if (emitDetailedChanges)
-        for (var key in _map.keys)
-          _changes.add(MapModification.remove(key, _map[key]));
+        for (var entry in _map.entries)
+          _changes.add(MapModification.remove(entry.key, entry.value));
       _map.clear();
     }
   }
@@ -91,13 +91,13 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
   ///
   ///Note that values can be null and a returned null value doesn't always mean that the key was absent.
   @override
-  V remove(key) {
+  V? remove(key) {
     assert(!isDisposed);
-    V removed;
+    V? removed;
     if (keys.contains(key)) {
       removed = _map.remove(key);
       if (emitDetailedChanges)
-        _changes.add(MapModification.remove(key, removed));
+        _changes.add(MapModification.remove(key as K, removed));
       _dirty = true;
     }
     return removed;
@@ -109,13 +109,13 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
 ///object to minimize garbage collection.
 class MapChange<K, V> extends ChangeWithAny {
   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
-  final List<MapModification<K, V>> modifications;
+  final List<MapModification<K, V>>? modifications;
   MapChange(this.modifications, {bool quiet = false})
       : super(quiet: quiet, any: false);
 
   static final _cache = <Type, Map<Type, MapChange>>{};
 
-  MapChange._any({bool quiet})
+  MapChange._any({bool quiet = false})
       : modifications = null,
         super(quiet: quiet, any: true);
 
@@ -125,9 +125,9 @@ class MapChange<K, V> extends ChangeWithAny {
     if (quiet) return MapChange<K, V>._any(quiet: true);
 
     _cache[K] ??= <Type, MapChange>{};
-    _cache[K][V] ??= MapChange<K, V>._any();
+    _cache[K]![V] ??= MapChange<K, V>._any();
 
-    return _cache[K][V];
+    return _cache[K]![V] as MapChange<K, V>;
   }
 }
 
@@ -137,10 +137,10 @@ class MapModification<K, V> {
   final K key;
 
   ///The value inserted.
-  final V newValue;
+  final V? newValue;
 
   ///The value removed.
-  final V oldValue;
+  final V? oldValue;
 
   ///Whether [this] is an insert modification.
   final bool isInsert;

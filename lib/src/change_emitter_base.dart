@@ -23,18 +23,18 @@ abstract class ChangeEmitter<C extends Change> {
   ChangeEmitter({bool useSyncronousStream = false})
       : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
 
-  final _controller;
+  final StreamController<C> _controller;
 
-  ChangeEmitter _parent;
+  ChangeEmitter? _parent;
 
-  ChangeEmitter get parent => _parent;
+  ChangeEmitter? get parent => _parent;
 
   @protected
   T findAncestorOfExactType<T extends ChangeEmitter>() {
     var ancestor = parent;
     while (ancestor != null)
       if (ancestor.runtimeType == T)
-        return ancestor;
+        return ancestor as T;
       else
         ancestor = ancestor.parent;
 
@@ -74,8 +74,7 @@ abstract class ChangeWithAny extends Change {
   ///and instead recycle the same [Change] object on each change
   ///to minimize garbage collection.
   final bool any;
-  ChangeWithAny({@required bool quiet, @required this.any})
-      : super(quiet: quiet);
+  ChangeWithAny({required bool quiet, required this.any}) : super(quiet: quiet);
 }
 
 abstract class ParentEmitter {
@@ -130,30 +129,29 @@ abstract class EmitterContainer<C extends ContainerChange>
   ///See [EmitterChange].
   final bool emitDetailedChanges;
 
-  var _stream;
+  // var _stream;
 
-  get changes => _stream ??= _getStream();
+  // get changes => _stream ??= _getStream();
+
+  late final changes = _getStream();
 
   ///override this method in order to create and use your own subclass of [ContainerChange]
+  ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  C controllerChangeFromChildChange(ChangeEmitter child, Change childChange) {
-    return emitDetailedChanges
-        ? ContainerChange(child, childChange)
-        : ContainerChange.any();
+  C containerChangeFromChildChange(
+      {ChangeEmitter? child, Change? change, bool quiet = false}) {
+    if (emitDetailedChanges && child != null)
+      return ContainerChange(child, change) as C;
+    return ContainerChange.any() as C;
   }
 
   Stream<C> _getStream() {
     var elements = emittingChildren ?? children;
     var streams = <Stream<C>>[];
-    for (var element in elements) {
-      var baseStream = element.changes.where((event) => !event.quiet);
-      var stream = baseStream
-          .map((event) => controllerChangeFromChildChange(element, event));
-
-      streams.add(stream);
-    }
-
-    streams.add(_controller.stream);
+    streams
+      ..addAll(elements.map((e) => e.changes.where((event) => !event.quiet).map(
+          (event) => containerChangeFromChildChange(child: e, change: event))))
+      ..add(_controller.stream);
 
     return StreamGroup.merge<C>(streams).asBroadcastStream();
   }
@@ -167,13 +165,13 @@ abstract class EmitterContainer<C extends ContainerChange>
 
   ///A list of [children] that should trigger this container to emit changes. If you want all children
   ///to trigger changes, then you don't need to override this getter.
-  List<ChangeEmitter> get emittingChildren => null;
+  List<ChangeEmitter>? get emittingChildren => null;
 
   ///Emits [new ContainerChange.any]).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void emit({bool quiet = false}) =>
-      addChangeToStream(ContainerChange.any(quiet: quiet));
+      addChangeToStream(containerChangeFromChildChange(quiet: quiet));
 
   ///Disposes resources of all [children] and [this].
   @mustCallSuper
@@ -187,15 +185,15 @@ abstract class EmitterContainer<C extends ContainerChange>
 ///or [EmitterContainer.emit] is called.
 class ContainerChange extends ChangeWithAny {
   ///The child [ChangeEmitter] that changed.
-  final ChangeEmitter changedElement;
+  final ChangeEmitter? changedElement;
 
   ///The [Change] broadcast by the [changedElement] that triggerd this change.
-  final Change change;
+  final Change? change;
 
   ContainerChange(this.changedElement, this.change, {bool quiet = false})
       : super(quiet: quiet, any: false);
 
-  static final _anySingle = ContainerChange._any();
+  static final _anyCache = ContainerChange._any();
 
   ContainerChange._any({bool quiet = false})
       : changedElement = null,
@@ -207,6 +205,6 @@ class ContainerChange extends ChangeWithAny {
   ///This is the default for [EmitterContainer]. Will provide
   ///the same cached object to minimize garbage collection.
   factory ContainerChange.any({bool quiet = false}) {
-    return quiet ? ContainerChange._any(quiet: true) : _anySingle;
+    return quiet ? ContainerChange._any(quiet: true) : _anyCache;
   }
 }
