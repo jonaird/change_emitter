@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:change_emitter/change_emitter.dart';
 
+/// An [EmitterContainer] is a [ChangeEmitter] that let's you compose other ChangeEmitters as children
+/// [AppState] will emit a [Change] whenever any of its [children] emit a change.
 class AppState extends EmitterContainer {
   final tabs = EmitterList([TabState()]);
 
@@ -11,8 +13,6 @@ class AppState extends EmitterContainer {
     ..emit();
 }
 
-///We can bundle everything we need to display our text by extending [EmitterContainer].
-///This means that when any values change, our UI updates automatically.
 class TabState extends EmitterContainer {
   final textInput = TextEditingEmitter(text: 'Some text');
   final bold = ValueEmitter(false);
@@ -30,8 +30,7 @@ class TabState extends EmitterContainer {
 
   ///We have to provide a list of all [ChangeEmitter]s defined in this class.
   ///This makes for very easy disposing of resources. If [this] is ever disposed,
-  ///Which happens automatically when using [ChangeEmitterProvider], all of the
-  ///children will be disposed as well! Convinient!
+  ///children will be disposed as well.
   @override
   get children => [textInput, bold, italic, color, isRedAndBold];
 
@@ -50,6 +49,7 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    //We provide the root of our state tree using a [RootProvider]
     return RootProvider<AppState>(
       state: AppState(),
       builder: (_, state) => DefaultTabController(
