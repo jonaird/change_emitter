@@ -23,7 +23,7 @@ class TabState extends EmitterContainer {
 
   ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
   ///value using the builder. This means all we need to do is worry about setting the
-  ///right color and value for bold and this will take care of itself!
+  ///right color and value for bold and it will update automatically.
 
   late final ValueEmitter<bool> isRedAndBold = ValueEmitter.reactive(
     reactTo: [color, bold],
