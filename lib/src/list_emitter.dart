@@ -266,25 +266,22 @@ class ListModification<E> {
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
-    implements ParentEmitter {
+    implements ParentEmitter<ListChange<E>> {
   EmitterList(List<E> list) : super(list, emitDetailedChanges: true);
+  void registerChild(ChangeEmitter child) {
+    child._parent = this;
+    if (child is ParentEmitter) child.registerChildren();
+  }
 
   void registerChildren() {
-    for (var emitter in this) {
-      emitter._parent = this;
-      if (emitter is ParentEmitter)
-        (emitter as ParentEmitter).registerChildren();
-    }
+    for (var child in this) registerChild(child);
   }
 
   void emit({bool quiet = false}) {
     for (var mod in _changes) {
       //makes sure that a remove is really a remove and not a re-ordering before disposing
       if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
-
-      mod.insert?._parent = this;
-      if (mod.insert is ParentEmitter)
-        (mod.insert as ParentEmitter).registerChildren();
+      if (mod.isInsert) registerChild(mod.insert!);
     }
     super.emit(quiet: quiet);
   }
@@ -294,8 +291,4 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
     this.forEach((element) => element.dispose());
     super.dispose();
   }
-}
-
-extension on Type {
-  bool get isNullable => toString()[toString().length - 1] == '?';
 }

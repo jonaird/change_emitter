@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:collection';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:async/async.dart';
-import 'package:provider/provider.dart';
+//import 'package:provider/provider.dart';
 
 part 'map_emitter.dart';
 part 'list_emitter.dart';
 part 'value_emitter.dart';
-part 'widgets.dart';
+//part 'widgets_old.dart';
 part 'controller_emitters.dart';
+part 'widgets.dart';
 
 ///An alternative to [ChangeNotifier] from the Flutter framework that exposes
 ///a stream of [Change]s to notify widgets and other components of your state
@@ -77,8 +79,14 @@ abstract class ChangeWithAny extends Change {
   ChangeWithAny({required bool quiet, required this.any}) : super(quiet: quiet);
 }
 
-abstract class ParentEmitter {
+abstract class ParentEmitter<C extends Change> extends ChangeEmitter<C> {
+  @protected
   void registerChildren();
+  @protected
+  void registerChild(ChangeEmitter child) {
+    child._parent = this;
+    if (child is ParentEmitter) child.registerChildren();
+  }
 }
 
 ///A [ChangeEmitter] that can be subclassed in order to compose multiple [ChangeEmitter]s into a single unit.
@@ -112,14 +120,11 @@ abstract class ParentEmitter {
 ///
 ///
 abstract class EmitterContainer<C extends ContainerChange>
-    extends ChangeEmitter<C> implements ParentEmitter {
+    extends ParentEmitter<C> {
   EmitterContainer({this.emitDetailedChanges = false});
 
   void registerChildren() {
-    for (var child in children) {
-      child._parent = this;
-      if (child is ParentEmitter) (child as ParentEmitter).registerChildren();
-    }
+    for (var child in children) registerChild(child);
   }
 
   ///{@macro detailed}

@@ -1,53 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:change_emitter/change_emitter.dart';
 
-void main() {
-  runApp(
-    ///We'll use the Provider package to provide state.
-    ChangeEmitterProvider(
-      create: (_) => TextState(),
-      child: MyApp(),
-    ),
-  );
-}
+class AppState extends EmitterContainer {
+  final tabs = EmitterList([TabState()]);
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: Text('Upstate Example')),
-        body: Center(
-          child: Container(
-            width: 500,
-            height: 700,
-            child: AppBody(),
-          ),
-        ),
-      ),
-    );
-  }
+  get children => [tabs];
+
+  void addTab() => tabs
+    ..add(TabState())
+    ..emit();
 }
 
 ///We can bundle everything we need to display our text by extending [EmitterContainer].
 ///This means that when any values change, our UI updates automatically.
-class TextState extends EmitterContainer {
+class TabState extends EmitterContainer {
   final textInput = TextEditingEmitter(text: 'Some text');
   final bold = ValueEmitter(false);
   final italic = ValueEmitter(false);
   final color = ValueEmitter<Color>(Colors.red);
-  ValueEmitter<bool> isRedAndBold;
 
-  TextState() {
-    ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
-    ///value using the builder. This means all we need to do is worry about setting the
-    ///right color and value for bold and this will take care of itself!
-    isRedAndBold = ValueEmitter.reactive(
-      reactTo:[color, bold],
-      withValue:() => color.value == Colors.red && bold.value,
-    );
-  }
+  ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
+  ///value using the builder. This means all we need to do is worry about setting the
+  ///right color and value for bold and this will take care of itself!
+
+  late final ValueEmitter<bool> isRedAndBold = ValueEmitter.reactive(
+    reactTo: [color, bold],
+    withValue: () => color.value == Colors.red && bold.value,
+  );
 
   ///We have to provide a list of all [ChangeEmitter]s defined in this class.
   ///This makes for very easy disposing of resources. If [this] is ever disposed,
@@ -64,77 +43,112 @@ class TextState extends EmitterContainer {
   get emittingChildren => [textInput.text, bold, italic, color];
 }
 
-class AppBody extends StatelessWidget {
+void main() {
+  runApp(MaterialApp(home: MyApp()));
+}
+
+class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextField(
-          ///[TextEditingEmitter] provides a controller for us to use. It will be disposed of automatically
-          ///when our state is disposed.
-          controller: Provider.of<TextState>(context, listen: false)
-              .textInput
-              .controller,
-        ),
-        Row(children: [
-          Text('Bold: '),
-
-          ///We can use a [ChangeEmitterSelector] to update some UI when only
-          ///a subcomponent of our state changes. In this case we only want
-          ///our switch to update when bold changes.
-          ChangeEmitterSelector<TextState, ValueEmitter<bool>>(
-            selector: (_, state) => state.bold,
-            builder: (_, bold, __) => Switch(
-              ///We get the value held by a [ValueEmitter] use the value property
-              value: bold.value,
-
-              ///We set a new value the same way.
-              onChanged: (newValue) => bold.value = newValue,
-            ),
-          )
-        ]),
-        Row(children: [
-          Text('Italic: '),
-          ChangeEmitterSelector<TextState, ValueEmitter<bool>>(
-            selector: (_, state) => state.italic,
-            builder: (_, italic, __) => Switch(
-              value: italic.value,
-              onChanged: (value) => italic.value = value,
-            ),
-          )
-        ]),
-        Row(children: [
-          Text('Color: '),
-          ChangeEmitterSelector<TextState, ValueEmitter<Color>>(
-            selector: (_, state) => state.color,
-            builder: (_, color, __) => DropdownButton(
-              items: [
-                DropdownMenuItem(child: Text('red'), value: Colors.red),
-                DropdownMenuItem(child: Text('blue'), value: Colors.blue),
-                DropdownMenuItem(child: Text('green'), value: Colors.green),
-                DropdownMenuItem(child: Text('purple'), value: Colors.purple)
+    return RootProvider<AppState>(
+      state: AppState(),
+      builder: (_, state) => DefaultTabController(
+        length: state.tabs.length,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text('Reprovider Example'),
+            bottom: TabBar(
+              tabs: [
+                for (int i = 0; i < state.tabs.length; i++)
+                  Tab(child: Text(i.toString()))
               ],
-              value: color.value,
-              onChanged: (value) => color.value = value,
             ),
-          )
-        ]),
-        DisplayText(),
-        ChangeEmitterSelector(
-          selector: (_, TextState state) => state.isRedAndBold,
-          builder: (_, isRedAndBold, __) =>
-              Text("Red and bold: " + isRedAndBold.value.toString()),
+          ),
+          body: TabBarView(
+              children: state.tabs.toProviderList(child: TextPage())),
+          floatingActionButton: IconButton(
+            icon: Icon(Icons.add),
+            onPressed: () => state.addTab(),
+          ),
         ),
-        FlatButton(
-          child: Text('append text'),
-          onPressed: () =>
-              context.read<TextState>().textInput.text.value += ' text',
+      ),
+    );
+  }
+}
+
+class TextPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 500,
+        height: 700,
+        child: Column(
+          children: [
+            TextField(
+              ///[TextEditingEmitter] provides a controller for us to use. It will be disposed of automatically
+              ///when our state is disposed.
+              controller: context.read<TabState>()!.textInput.controller,
+            ),
+            Row(children: [
+              Text('Bold: '),
+              Reprovider<TabState, ValueEmitter<bool>>(
+                  selector: (state) => state.bold,
+                  builder: (context, bold) => Switch(
+                        ///We get the value held by a [ValueEmitter] use the [ValueEmitter.value] property
+                        value: bold.value,
+
+                        ///We set a new value the same way.
+                        onChanged: (newValue) => bold.value = newValue,
+                      ))
+            ]),
+            Row(children: [
+              Text('Italic: '),
+              Reprovider(
+                selector: (TabState state) => state.italic,
+                builder: (_, ValueEmitter<bool> italic) => Switch(
+                    value: italic.value,
+                    onChanged: (value) => italic.value = value),
+              )
+            ]),
+            Row(children: [
+              Text('Color: '),
+              Reprovider<TabState, ValueEmitter<Color>>(
+                  selector: (state) => state.color,
+                  builder: (_, color) => DropdownButton<Color>(
+                        items: [
+                          DropdownMenuItem(
+                              child: Text('red'), value: Colors.red),
+                          DropdownMenuItem(
+                              child: Text('blue'), value: Colors.blue),
+                          DropdownMenuItem(
+                              child: Text('green'), value: Colors.green),
+                          DropdownMenuItem(
+                              child: Text('purple'), value: Colors.purple)
+                        ],
+                        value: color.value,
+                        onChanged: (value) => color.value = value!,
+                      ))
+            ]),
+            DisplayText(),
+            Reprovider<TabState, ValueEmitter<bool>>(
+              selector: (state) => state.isRedAndBold,
+              builder: (_, isRedAndBold) =>
+                  Text("Red and bold: " + isRedAndBold.value.toString()),
+            ),
+            TextButton(
+              child: Text('append text'),
+              onPressed: () =>
+                  context.read<TabState>()!.textInput.text.value += ' text',
+            ),
+            TextButton(
+              child: Text('clear'),
+              onPressed: () =>
+                  context.read<TabState>()!.textInput.text.value = '',
+            ),
+          ],
         ),
-        FlatButton(
-          child: Text('clear'),
-          onPressed: () => context.read<TextState>().textInput.text.value = '',
-        ),
-      ],
+      ),
     );
   }
 }
@@ -143,21 +157,15 @@ class AppBody extends StatelessWidget {
 class DisplayText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    ///We can use a vanilla [Consumer] from the Provider package which will call the builder whenever [TextState]
-    ///changes.
-    return Consumer<TextState>(
-      builder: (context, state, child) {
-        return Text(
-          state.textInput.text.value,
-          style: TextStyle(
-              color: state.color.value,
-              fontSize: 24,
-              fontWeight:
-                  state.bold.value ? FontWeight.bold : FontWeight.normal,
-              fontStyle:
-                  state.italic.value ? FontStyle.italic : FontStyle.normal),
-        );
-      },
+    var state = context.depend<TabState>();
+
+    return Text(
+      state.textInput.text.value,
+      style: TextStyle(
+          color: state.color.value,
+          fontSize: 24,
+          fontWeight: state.bold.value ? FontWeight.bold : FontWeight.normal,
+          fontStyle: state.italic.value ? FontStyle.italic : FontStyle.normal),
     );
   }
 }
