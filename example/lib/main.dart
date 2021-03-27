@@ -4,6 +4,8 @@ import 'package:change_emitter/change_emitter.dart';
 /// An [EmitterContainer] is a [ChangeEmitter] that lets you compose other ChangeEmitters as children
 /// [AppState] will emit a [Change] whenever any of its [children] emit a change.
 class AppState extends EmitterContainer {
+  ///An [EmitterList] is a [ListEmitter] that can only take [ChangeEmitter]s as children and automatically calls [ChangeEmitter.dispose] when
+  ///they are removed from the list.
   final tabs = EmitterList([TabState()]);
 
   get children => [tabs];
