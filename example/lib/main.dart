@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:change_emitter/change_emitter.dart';
 
-/// An [EmitterContainer] is a [ChangeEmitter] that lets you compose other ChangeEmitters as children
+/// An [EmitterContainer] is a [ChangeEmitter] that lets you compose other ChangeEmitters as children.
 /// [AppState] will emit a [Change] whenever any of its [children] emit a change.
 class AppState extends RootEmitterContainer {
   ///An [EmitterList] is a [ListEmitter] that can only take [ChangeEmitter]s as children and automatically calls [ChangeEmitter.dispose] when
@@ -31,7 +31,7 @@ class TabState extends EmitterContainer {
 
   ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
   ///value using the builder. This means all we need to do is worry about setting the
-  ///right color and value for bold and this will take care of itself!
+  ///right color and value for bold and it will update automatically.
 
   late final ValueEmitter<bool> isRedAndBold = ValueEmitter.reactive(
     reactTo: [color, bold],
