@@ -270,6 +270,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
   EmitterList(List<E> list) : super(list, emitDetailedChanges: true);
   void registerChild(ChangeEmitter child) {
     child._parent = this;
+    child.didRegisterParent();
     if (child is ParentEmitter) child.registerChildren();
   }
 

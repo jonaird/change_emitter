@@ -3,11 +3,10 @@ import 'package:change_emitter/change_emitter.dart';
 
 /// An [EmitterContainer] is a [ChangeEmitter] that lets you compose other ChangeEmitters as children
 /// [AppState] will emit a [Change] whenever any of its [children] emit a change.
-class AppState extends EmitterContainer {
+class AppState extends RootEmitterContainer {
   ///An [EmitterList] is a [ListEmitter] that can only take [ChangeEmitter]s as children and automatically calls [ChangeEmitter.dispose] when
   ///they are removed from the list.
   final tabs = EmitterList([TabState()]);
-
   get children => [tabs];
 
   void addTab() => tabs
@@ -20,6 +19,15 @@ class TabState extends EmitterContainer {
   final bold = ValueEmitter(false);
   final italic = ValueEmitter(false);
   final color = ValueEmitter<Color>(Colors.red);
+
+  ///Ancestors in the state tree are accessible after
+  ///[ChangeEmitter.didRegisterParent] is fired letting you access [parent]
+  ///and [findAncestorOfExactType]
+  @override
+  void didRegisterParent() {
+    print(parent);
+    print(findAncestorOfExactType<AppState>());
+  }
 
   ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
   ///value using the builder. This means all we need to do is worry about setting the
@@ -48,12 +56,14 @@ void main() {
   runApp(MaterialApp(home: MyApp()));
 }
 
+final appState = AppState();
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     //We provide the root of our state tree using a [RootProvider]
-    return RootProvider<AppState>(
-      state: AppState(),
+    return Provider<AppState>(
+      state: appState,
       builder: (_, state) => DefaultTabController(
         length: state.tabs.length,
         child: Scaffold(
@@ -133,10 +143,12 @@ class TextPage extends StatelessWidget {
                       ))
             ]),
             DisplayText(),
-            Reprovider<TabState, ValueEmitter<bool>>(
-              selector: (state) => state.isRedAndBold,
-              builder: (_, isRedAndBold) =>
-                  Text("Red and bold: " + isRedAndBold.value.toString()),
+            Builder(
+              builder: (builderContext) {
+                var isRedAndBold = builderContext.select<TabState, bool>(
+                    (state) => state.isRedAndBold.value);
+                return Text("Red and bold: " + isRedAndBold.toString());
+              },
             ),
             TextButton(
               child: Text('append text'),

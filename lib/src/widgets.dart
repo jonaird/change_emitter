@@ -1,18 +1,5 @@
 part of 'change_emitter_base.dart';
 
-class RootProvider<T extends ChangeEmitter> extends StatelessWidget {
-  RootProvider({required this.state, this.child, this.builder});
-  final T state;
-  final Widget? child;
-
-  final Widget Function(BuildContext context, T state)? builder;
-  @override
-  Widget build(BuildContext context) {
-    if (state is ParentEmitter) (state as ParentEmitter).registerChildren();
-    return Provider<T>(state: state, child: child, builder: builder);
-  }
-}
-
 class Provider<T extends ChangeEmitter> extends StatelessWidget {
   Provider({required this.state, this.child, this.builder})
       : assert((child != null && builder == null) ||
@@ -88,12 +75,10 @@ class _InheritedProviderElement<T extends ChangeEmitter>
   T get value => widget.value;
 
   void _subscribeToChanges() {
-    if (_subscription != null)
-      _subscription!.cancel();
-    else
-      _subscription = value.changes.listen((event) => this
-        .._notifyDependents = true
-        ..markNeedsBuild());
+    if (_subscription != null) _subscription!.cancel();
+    _subscription = value.changes.listen((event) => this
+      .._notifyDependents = true
+      ..markNeedsBuild());
   }
 
   @override
@@ -115,9 +100,7 @@ class _InheritedProviderElement<T extends ChangeEmitter>
       dependencies.fullDependency = true;
     else if (!dependencies.fullDependency) {
       if (dependencies.shouldClearSelectors) dependencies.selectors.clear();
-
       dependencies.selectors.add(aspect as _SelectorAspect<T>);
-
       if (!dependencies.addedPostFrameCallback)
         _addPostFrameCallback(dependencies);
     }
@@ -171,7 +154,7 @@ extension BuildContextExtensions on BuildContext {
     assert(inheritedElement != null);
     var selection = selector(inheritedElement!.value);
     dependOnInheritedElement(inheritedElement,
-        aspect: (T state) => selector(state) == selection);
+        aspect: (T state) => selector(state) != selection);
     return selection;
   }
 

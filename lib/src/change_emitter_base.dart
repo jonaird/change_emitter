@@ -43,6 +43,9 @@ abstract class ChangeEmitter<C extends Change> {
     throw ('Could not find ancestor of type $T');
   }
 
+  @protected
+  void didRegisterParent() => null;
+
   ///Used by subclasses to broadcast [Change]s.
   @protected
   void addChangeToStream(C change) => _controller.add(change);
@@ -85,6 +88,7 @@ abstract class ParentEmitter<C extends Change> extends ChangeEmitter<C> {
   @protected
   void registerChild(ChangeEmitter child) {
     child._parent = this;
+    child.didRegisterParent();
     if (child is ParentEmitter) child.registerChildren();
   }
 }
@@ -183,6 +187,14 @@ abstract class EmitterContainer<C extends ContainerChange>
   void dispose() {
     for (var child in children) child.dispose();
     super.dispose();
+  }
+}
+
+abstract class RootEmitterContainer<C extends ContainerChange>
+    extends EmitterContainer<C> {
+  RootEmitterContainer({bool emitDetailedChanges = false})
+      : super(emitDetailedChanges: emitDetailedChanges) {
+    registerChildren();
   }
 }
 
