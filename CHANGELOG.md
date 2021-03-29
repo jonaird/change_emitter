@@ -1,3 +1,5 @@
+## [1.0.0-beta.2] - Updated readme
+
 ## [1.0.0-beta.1] - Null Safety, removed Provider dependency
 Transitioned to NNBD, removed Provider dependency and replaced it with a 
 much simpler reimplementation that is more suitable for the desired approach of 

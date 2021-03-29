@@ -3,11 +3,10 @@
 ChangeEmitter is a highly composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) from the Flutter framework that can be used to implement the Observable State Tree pattern which you can read about [here](https://jonathanaird.medium.com/observable-state-trees-a-state-management-pattern-for-flutter-2e5e1c5bc46a). Instead of maintaining a list of callbacks, ChangeEmitters use a stream of Change objects which can contain specific information about changes and are easier to manipulate. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions and a minimalistic reimplementation of the [Provider package](https://github.com/rrousselGit/provider).
 
 ## Installation  
-To use ChangeEmitter, add it to your dependencies in your pubspec.yaml file as well as the provider package: 
+To use ChangeEmitter, add it to your dependencies in your pubspec.yaml: 
 ```
 dependencies:
-  provider:
-  change_emitter:
+  change_emitter: ^1.0.0-beta.1
 ``` 
 
 
