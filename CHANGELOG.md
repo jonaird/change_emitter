@@ -1,3 +1,8 @@
+## [1.0.0-beta.1] - Null Safety, removed Provider dependency
+Transitioned to NNBD, removed Provider dependency and replaced it with a 
+much simpler reimplementation that is more suitable for the desired approach of 
+change emitters. Various small breaking changes.
+
 ## [0.9.11] - Emitter children are registered from top down rather than bottom up
 
 
