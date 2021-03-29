@@ -4,18 +4,11 @@ part of 'change_emitter_base.dart';
 ///provide the [TextField] with the [controller] property. The controller will be disposed when
 ///[this] is disposed. Should only be used with one TextField at a time.
 class TextEditingEmitter extends EmitterContainer {
-  ///Control and read the text from a [TextField].
-  final ValueEmitter<String> text;
-
-  ///Control and read selection.
-  final selection = ValueEmitter(TextSelection.collapsed(offset: -1));
-
-  ///Control and read composition.
-  final composing = ValueEmitter(TextRange.empty);
-  final TextEditingController controller;
-  late StreamSubscription _subscription;
-
-  TextEditingEmitter({String text = ''})
+  TextEditingEmitter(
+      {String text = '',
+      this.textShouldEmit = true,
+      this.composingShouldEmit = true,
+      this.selectionShouldEmit = true})
       : text = ValueEmitter(text),
         controller = TextEditingController(text: text) {
     _subscription = changes.listen((change) {
@@ -32,7 +25,31 @@ class TextEditingEmitter extends EmitterContainer {
     });
   }
 
-  get children => [text, selection, composing];
+  final bool textShouldEmit;
+
+  final bool selectionShouldEmit;
+
+  final bool composingShouldEmit;
+
+  ///Control and read the text from a [TextField].
+  final ValueEmitter<String> text;
+
+  ///Control and read selection.
+  final ValueEmitter<TextSelection> selection =
+      ValueEmitter(TextSelection.collapsed(offset: -1));
+
+  ///Control and read composition.
+  final ValueEmitter<TextRange> composing = ValueEmitter(TextRange.empty);
+  final TextEditingController controller;
+  late StreamSubscription _subscription;
+
+  late final children = [text, selection, composing];
+
+  late final emittingChildren = [
+    if (textShouldEmit) text,
+    if (selectionShouldEmit) selection,
+    if (composingShouldEmit) composing
+  ];
 
   void dispose() {
     _subscription.cancel();

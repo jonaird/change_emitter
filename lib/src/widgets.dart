@@ -1,5 +1,18 @@
 part of 'change_emitter_base.dart';
 
+//MIT License
+// Copyright (c) 2019 Remi Rousselet
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
 class Provider<T extends ChangeEmitter> extends StatelessWidget {
   Provider({required this.state, this.child, this.builder})
       : assert((child != null && builder == null) ||
@@ -13,7 +26,7 @@ class Provider<T extends ChangeEmitter> extends StatelessWidget {
         value: state,
         child: child != null
             ? child!
-            : Builder(builder: (c) => builder!(c, c.depend<T>())));
+            : Builder(builder: (c) => builder!(c, c.depend<T>()!)));
   }
 }
 
@@ -28,12 +41,12 @@ class Reprovider<T extends ChangeEmitter, S extends ChangeEmitter>
 
   @override
   Widget build(BuildContext context) {
-    var state = context.select(selector);
-    return _InheritedProvider(
+    var state = context.select(selector)!;
+    return _InheritedProvider<S>(
         value: state,
         child: child != null
             ? child!
-            : Builder(builder: (c) => builder!(c, c.depend<S>())));
+            : Builder(builder: (c) => builder!(c, c.depend<S>()!)));
   }
 }
 
@@ -149,18 +162,19 @@ class _InheritedProviderElement<T extends ChangeEmitter>
 extension BuildContextExtensions on BuildContext {
   T? read<T extends ChangeEmitter>() => _ipe<T>()?.value;
 
-  S select<T extends ChangeEmitter, S>(S Function(T) selector) {
+  S? select<T extends ChangeEmitter, S>(S Function(T) selector) {
     var inheritedElement = _ipe<T>();
-    assert(inheritedElement != null);
-    var selection = selector(inheritedElement!.value);
+    if (inheritedElement == null) return null;
+    var selection = selector(inheritedElement.value);
     dependOnInheritedElement(inheritedElement,
         aspect: (T state) => selector(state) != selection);
     return selection;
   }
 
-  T depend<T extends ChangeEmitter>() {
+  T? depend<T extends ChangeEmitter>() {
     var inheritedElement = _ipe<T>();
-    dependOnInheritedElement(inheritedElement!);
+    if (inheritedElement == null) return null;
+    dependOnInheritedElement(inheritedElement);
     return inheritedElement.value;
   }
 
@@ -170,10 +184,10 @@ extension BuildContextExtensions on BuildContext {
 }
 
 extension ProviderExtension<T extends ChangeEmitter> on EmitterList<T> {
-  ///Converts [this] into a list of Providers that provide the elements of [this].
+  ///Converts [this] into a list of Providers that provide the elements of [this] with a child or a builder.
   ///
-  ///Be forwarned, you must depend on this EmitterList's [parent] in the build method in which
-  ///this function is called or your app may display incorrect state.
+  ///To use this method you must depend on this EmitterList's [parent] in the build method in which
+  ///this method is called or your app may display incorrect state.
   List<Widget> toProviderList(
       {Widget? child,
       Widget Function(BuildContext context, int index, T state)? builder}) {

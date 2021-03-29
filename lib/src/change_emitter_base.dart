@@ -32,7 +32,7 @@ abstract class ChangeEmitter<C extends Change> {
   ChangeEmitter? get parent => _parent;
 
   @protected
-  T findAncestorOfExactType<T extends ChangeEmitter>() {
+  T? findAncestorOfExactType<T extends ChangeEmitter>() {
     var ancestor = parent;
     while (ancestor != null)
       if (ancestor.runtimeType == T)
@@ -40,9 +40,10 @@ abstract class ChangeEmitter<C extends Change> {
       else
         ancestor = ancestor.parent;
 
-    throw ('Could not find ancestor of type $T');
+    return null;
   }
 
+  ///Will be called after [parent] is set and the ancestor tree is available.
   @protected
   void didRegisterParent() => null;
 
@@ -190,9 +191,9 @@ abstract class EmitterContainer<C extends ContainerChange>
   }
 }
 
-abstract class RootEmitterContainer<C extends ContainerChange>
+abstract class RootEmitter<C extends ContainerChange>
     extends EmitterContainer<C> {
-  RootEmitterContainer({bool emitDetailedChanges = false})
+  RootEmitter({bool emitDetailedChanges = false})
       : super(emitDetailedChanges: emitDetailedChanges) {
     registerChildren();
   }

@@ -71,14 +71,16 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void emit({bool quiet = false}) {
     assert(!isDisposed);
+    ListChange<E>? change;
     if (_dirty && !quiet)
-      addChangeToStream(emitDetailedChanges
-          ? ListChange(List.from(_changes))
-          : ListChange.any());
+      emitDetailedChanges
+          ? change = ListChange(List.from(_changes))
+          : change = ListChange.any();
     else if (_dirty)
-      addChangeToStream(emitDetailedChanges
-          ? ListChange(_changes, quiet: true)
-          : ListChange.any(quiet: true));
+      emitDetailedChanges
+          ? change = ListChange(_changes, quiet: true)
+          : change = ListChange.any(quiet: true);
+    if (change != null) addChangeToStream(change);
     _changes.clear();
     _dirty = false;
   }
@@ -267,7 +269,15 @@ class ListModification<E> {
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
     implements ParentEmitter<ListChange<E>> {
-  EmitterList(List<E> list) : super(list, emitDetailedChanges: true);
+  EmitterList(List<E> list) : super(list, emitDetailedChanges: true) {
+    _sub = changes.listen((change) {
+      for (var mod in change.modifications!)
+        if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
+    });
+  }
+
+  late StreamSubscription _sub;
+
   void registerChild(ChangeEmitter child) {
     child._parent = this;
     child.didRegisterParent();
@@ -280,8 +290,6 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
 
   void emit({bool quiet = false}) {
     for (var mod in _changes) {
-      //makes sure that a remove is really a remove and not a re-ordering before disposing
-      if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
       if (mod.isInsert) registerChild(mod.insert!);
     }
     super.emit(quiet: quiet);
@@ -289,6 +297,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
 
   @mustCallSuper
   void dispose() {
+    _sub.cancel();
     this.forEach((element) => element.dispose());
     super.dispose();
   }

@@ -1,6 +1,6 @@
 # change_emitter
  
-ChangeEmitter is a highly composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) in the Flutter framework that can be used with Provider for state management. Instead of maintaining a list of callbacks, ChangeEmitters use a stream of change objects which can contain specific information about changes and are easier to manipulate. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions.
+ChangeEmitter is a highly composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) from the Flutter framework that can be used to implement the Observable State Tree pattern which you can read about here. Instead of maintaining a list of callbacks, ChangeEmitters use a stream of Change objects which can contain specific information about changes and are easier to manipulate. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions and a minimalistic reimplementation of the [Provider package](https://github.com/rrousselGit/provider).
 
 ## Installation  
 To use ChangeEmitter, add it to your dependencies in your pubspec.yaml file as well as the provider package: 
@@ -12,13 +12,13 @@ dependencies:
 
 
 ## Usage 
-To get started quickly check out the [example](https://github.com/jonaird/change_emitter/tree/master/example/lib). 
+To get started quickly, please check out the [example](https://github.com/jonaird/change_emitter/tree/master/example/lib). 
  
 And the [API documentation](https://pub.dev/documentation/change_emitter/latest/change_emitter/change_emitter-library.html)
 
 ### Built in ChangeEmitters
   
-Comes with ChangeEmitters for basic primitives and way to compose them.
+Comes with ChangeEmitters for basic primitives and a way to compose them.
 
 ValueEmitter:  
 ```
@@ -26,7 +26,7 @@ ValueEmitter:
 var toggle = ValueEmitter(true);
 
 //All ChangeEmitters expose a stream of changes
-var subscription = boolToggle.changes.listen((change)=>print('toggle switched'));
+var subscription = toggle.changes.listen((change)=>print('toggle switched'));
 
 //set a new value
 toggle.value = false; //prints 'toggle switched'
@@ -49,7 +49,7 @@ var intList = ListEmitter([1,3,5]);
 intList.addAll([2,8,10]);
 intList.retainWhere((element)=>element%2==0);  
   
-var subscription = intList.notifications.listen((notif)=>print('changed'));
+var subscription = intList.notifications.listen((change)=>print('changed'));
 
 //ListEmitter will only emit changes when you call emit but will
 //only do so if there has actually been a change.
@@ -83,9 +83,10 @@ class TextState extends EmitterContainer {
   final color = ValueEmitter<Color>(Colors.red);  
     
   //Override this getter with list of all ChangeEmitters defined in this class.  
-  //This has two functions. First, all of the elements will be disposed  
+  //This has three functions. First, all of the elements will be disposed  
   //when this class is disposed (convenient!). Second, this class 
-  //will also emit a change whenever a child changes.  
+  //will also emit a change whenever a child changes. Third, children will
+  //have access to [this] as a parent and be able to use findAncestorOfExactType<T>()
   @override  
   get children => [text, bold, italic, color];  
   
@@ -105,7 +106,7 @@ myTextState.emit(); //prints 'changed!'
   
 //We can also change one of the children's values without causing the container to emit a change.
 //The child will still emit a change however:  
-myTextState.bold.quietSet(true); //nothing printed to the console  
+myTextState.bold.quietSet(true); //nothing printed to the console but will cause listeners of 'bold' to fire
   
 //You can do this for ListEmitter/Map/Containers as well
 //someListEmitter.emit(quiet: true);
@@ -116,15 +117,15 @@ myTextState.dispose();
 ```  
   
 ### Providing and Consuming State  
-ChangeEmitter uses the Provider package along with some extra classes to provide and consume state.  
+ChangeEmitter comes with a simple reimplementation of the Provider package.  
   
 ```
 //Povide your state to a part of the widget tree
 //This will automatically dispose your state when removed from the widget tree
 
 runApp(  
-  ChangeEmitterProvider(  
-    create: (_) => TextState(),  
+  Provider(  
+    state:TextState(),  
     child: MyApp(),  
   )  
 );  
@@ -133,24 +134,23 @@ class MyApp extends StatelessWidget{
 
   @override
   build(){
-    //You can use Provider as you would expect to get and depend on your state
-    //var textState = Provider.of<TextState>(context);
 
     return Column(
       children:[
-        //You can update your UI based on just a part of your state using a selector  
-        ChangeEmitterSelector<TextState,ValueEmitter<bool>>(  
-          selector: (_, state) => state.bold  
-          builder: (_, bold, __){  
+        //You can update your UI based on just a part of your state using a Reprovider  
+        Reprovider<TextState,ValueEmitter<bool>>(  
+          selector: (state) => state.bold  
+          builder: (_, bold){  
             return Switch(  
               value: bold.value,  
               onChange: (newValue) => bold.value = newValue  
             )  
           }  
         ),  
-        //Use a vanilla Consumer to update on any change to your state  
-        Consumer<TextState>(  
-          builder: (_, state, __){  
+        //Use context extensions to update on any change to your state  
+        Builder(  
+          builder: (builderContext){  
+            var state = builderContext.depend<TextState>()
             return Text(  
               state.text.value,  
               style: TextStyle(  
