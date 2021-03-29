@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:change_emitter/change_emitter.dart';
 
-/// An [EmitterContainer] is a [ChangeEmitter] that lets you compose other ChangeEmitters as children.
-/// [AppState] will emit a [Change] whenever any of its [children] emit a change.
-/// You should use [RootEmitterContainer] for the top level [ChangeEmitter] in
+/// [RootEmitter] is an [EmitterContainer] which is a [ChangeEmitter] that lets
+/// you compose other ChangeEmitters as children. [AppState] will emit a
+/// [Change] whenever any of its [children] emit a change.
+/// You should use [RootEmitter] for the top level [ChangeEmitter] in
 /// order for children to be able to depend on state up the tree.
 class AppState extends RootEmitter {
   ///An [EmitterList] is a [ListEmitter] that can only take [ChangeEmitter]s as
-  ///children and automatically calls [ChangeEmitter.dispose] on children when
-  ///they are removed from the list.
+  ///children, registers itself as their parent and automatically calls
+  ///[ChangeEmitter.dispose] on children when they are removed from the list.
   final tabs = EmitterList([TabState()]);
 
   @override
@@ -37,15 +38,6 @@ class TabState extends EmitterContainer {
   final italic = ValueEmitter(false);
   final color = ValueEmitter<Color>(Colors.red);
 
-  ///Ancestors in the state tree are accessible after
-  ///[ChangeEmitter.didRegisterParent] is fired letting you access [parent]
-  ///and [findAncestorOfExactType]
-  @override
-  void didRegisterParent() {
-    print(parent);
-    print(findAncestorOfExactType<AppState>());
-  }
-
   ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
   ///value using the builder. This means all we need to do is worry about setting the
   ///right color and value for bold and it will update automatically.
@@ -54,6 +46,15 @@ class TabState extends EmitterContainer {
     reactTo: [color, bold],
     withValue: () => color.value == Colors.red && bold.value,
   );
+
+  ///Ancestors in the state tree are accessible after
+  ///[ChangeEmitter.didRegisterParent] is fired letting you access [parent]
+  ///and [findAncestorOfExactType]
+  @override
+  void didRegisterParent() {
+    print(parent);
+    print(findAncestorOfExactType<AppState>());
+  }
 
   ///We have to provide a list of all [ChangeEmitter]s defined in this class.
   ///This makes for very easy disposing of resources. If [this] is ever disposed,
@@ -77,7 +78,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     ///A top level [Provider] should either only be done in widgets that will
-    ///never rebuild or you must define your [AppState] as a global singleton
+    ///never rebuild or you should define your [AppState] as a global singleton
     return Provider<AppState>(
       state: AppState(),
       builder: (_, state) => DefaultTabController(
@@ -108,6 +109,9 @@ class FloatingActionButtons extends StatelessWidget {
       children: [
         FloatingActionButton(
           child: Icon(Icons.remove),
+
+          ///access your state without rebuilding on changes using
+          ///[BuildContext.read]
           onPressed: () => context.read<AppState>()!.removeTab(),
         ),
         Padding(
@@ -135,6 +139,8 @@ class TextPage extends StatelessWidget {
                 controller: context.read<TabState>()!.textInput.controller),
             Row(children: [
               Text('Bold: '),
+
+              ///we can use a [Reprovider] to depend on a portion of our app state
               Reprovider<TabState, ValueEmitter<bool>>(
                   selector: (state) => state.bold,
                   builder: (context, bold) => Switch(
