@@ -288,17 +288,51 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
     for (var child in this) registerChild(child);
   }
 
-  void emit({bool quiet = false}) {
-    for (var mod in _changes) {
-      if (mod.isInsert) registerChild(mod.insert!);
-    }
-    super.emit(quiet: quiet);
+  //Registers children for all possible ways of adding an element to the list.
+
+  operator []=(int index, E value) {
+    super[index] = value;
+    registerChild(value);
+  }
+
+  void insert(int index, E element) {
+    super.insert(index, element);
+    registerChild(element);
+  }
+
+  void add(E element) {
+    super.add(element);
+    registerChild(element);
   }
 
   @mustCallSuper
   void dispose() {
     _sub.cancel();
-    this.forEach((element) => element.dispose());
+    forEach((element) => element.dispose());
     super.dispose();
   }
+}
+
+class SelectableEmitterList<E extends ChangeEmitter> extends EmitterContainer {
+  SelectableEmitterList(List<E> elements, {int selectedIndex = 0})
+      : elements = EmitterList(elements),
+        selectedIndex = ValueEmitter<int>(selectedIndex);
+  final EmitterList<E> elements;
+  final ValueEmitter<int> selectedIndex;
+  late final selectedElement = ValueEmitter.reactive(
+      reactTo: [elements, selectedIndex],
+      withValue: () => elements[selectedIndex.value]);
+
+  void selectLast() => selectedIndex.value = elements.length - 1;
+
+  void addAndSelect(E element) {
+    elements
+      ..add(element)
+      ..emit(quiet: true);
+    selectLast();
+  }
+
+  get children => [elements, selectedIndex, selectedElement];
+
+  get emittingChildren => [elements, selectedIndex];
 }
