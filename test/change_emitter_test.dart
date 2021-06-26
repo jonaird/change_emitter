@@ -9,7 +9,7 @@ var eq = DeepCollectionEquality();
 class ExampleEmitter extends EmitterContainer {
   final elist = EmitterList([]);
 
-  get children => [elist];
+  get children => {elist};
 }
 
 void main() {
@@ -81,7 +81,7 @@ void main() {
 
   test('ValueEmitter.reactive constructor works without throwing', () {
     var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
-    expect(a.runtimeType, ValueEmitter);
+    expect((a is ValueEmitter<bool>), true);
   });
 
   test('findAncestorOfExactType works in deep heirarchies', () {

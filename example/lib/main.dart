@@ -13,7 +13,7 @@ class AppState extends RootEmitter {
   final tabs = EmitterList([TabState()]);
 
   @override
-  get children => [tabs];
+  get children => {tabs};
 
   void addTab() => tabs
     ..add(TabState())
@@ -29,14 +29,11 @@ class TabState extends EmitterContainer {
   ///allows you to use it like an [EmitterContainer] and exposes a
   ///[TextEditingEmitter.controller] to use in [TextField]s.
   ///The controller gets disposed when [this] is disposed.
-  final textInput = TextEditingEmitter(
-    text: 'Some text',
-    selectionShouldEmit: false,
-    composingShouldEmit: false,
-  );
+  final TextEditingEmitter textInput = TextEditingEmitter(text: 'Some text');
   final bold = ValueEmitter(false);
   final italic = ValueEmitter(false);
   final color = ValueEmitter<Color>(Colors.red);
+  final textViewModel = TextViewModel();
 
   ///This [ValueEmitter] will react to changes in [color] or [bold] and set its
   ///value using the builder. This means all we need to do is worry about setting the
@@ -46,6 +43,10 @@ class TabState extends EmitterContainer {
     reactTo: [color, bold],
     withValue: () => color.value == Colors.red && bold.value,
   );
+
+  void appendText() => textInput.text.value += ' text';
+
+  void clearText() => textInput.text.value = '';
 
   ///Ancestors in the state tree are accessible after
   ///[ChangeEmitter.didRegisterParent] is fired letting you access [parent]
@@ -61,13 +62,20 @@ class TabState extends EmitterContainer {
   ///children will be disposed as well. It will also register [this] as the
   ///parent of each child.
   @override
-  get children => [textInput, bold, italic, color, isRedAndBold];
+  get children => {textInput, bold, italic, color, isRedAndBold, textViewModel};
+}
 
-  ///We actually don't want all [children] to cause our UI to update. Since [isRedAndBold] updates
-  ///on changes of other elements and we don't actually need it to display our text,
-  ///we override this getter to provide a subset of children that should trigger updates.
+class TextViewModel extends EmitterContainer {
+  TabState get parent => super.parent as TabState;
+
+  bool get bold => parent.bold.value;
+  bool get italic => parent.italic.value;
+  Color get color => parent.color.value;
+  String get text => parent.textInput.text.value;
+
   @override
-  get emittingChildren => [textInput, bold, italic, color];
+  get dependencies =>
+      {parent.bold, parent.italic, parent.color, parent.textInput.text};
 }
 
 void main() {
@@ -75,17 +83,17 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  static final appState = AppState();
+
   @override
   Widget build(BuildContext context) {
-    ///A top level [Provider] should either only be done in widgets that will
-    ///never rebuild or you should define your [AppState] as a global singleton
     return Provider<AppState>(
-      state: AppState(),
+      appState,
       builder: (_, state) => DefaultTabController(
         length: state.tabs.length,
         child: Scaffold(
           appBar: AppBar(
-            title: Text('OST Example'),
+            title: const Text('OST Example'),
             bottom: TabBar(
               tabs: state.tabs.toProviderList(
                   builder: (_, index, __) =>
@@ -93,8 +101,8 @@ class MyApp extends StatelessWidget {
             ),
           ),
           body: TabBarView(
-              children: state.tabs.toProviderList(child: TextPage())),
-          floatingActionButton: FloatingActionButtons(),
+              children: state.tabs.toProviderList(child: const TextPage())),
+          floatingActionButton: const FloatingActionButtons(),
         ),
       ),
     );
@@ -102,6 +110,7 @@ class MyApp extends StatelessWidget {
 }
 
 class FloatingActionButtons extends StatelessWidget {
+  const FloatingActionButtons();
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -112,13 +121,13 @@ class FloatingActionButtons extends StatelessWidget {
 
           ///access your state without rebuilding on changes using
           ///[BuildContext.read]
-          onPressed: () => context.read<AppState>()!.removeTab(),
+          onPressed: context.read<AppState>()!.removeTab,
         ),
         Padding(
           padding: const EdgeInsets.only(left: 8.0),
           child: FloatingActionButton(
             child: Icon(Icons.add),
-            onPressed: () => context.read<AppState>()!.addTab(),
+            onPressed: context.read<AppState>()!.addTab,
           ),
         ),
       ],
@@ -127,6 +136,7 @@ class FloatingActionButtons extends StatelessWidget {
 }
 
 class TextPage extends StatelessWidget {
+  const TextPage();
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -182,24 +192,14 @@ class TextPage extends StatelessWidget {
                       ))
             ]),
             DisplayText(),
-            Builder(
-              builder: (builderContext) {
-                ///we can use [BuildContext.select] to select for values.
-                ///The builder will rebuild when the value changes.
-                var isRedAndBold = builderContext.select<TabState, bool>(
-                    (state) => state.isRedAndBold.value);
-                return Text("Red and bold: " + isRedAndBold.toString());
-              },
-            ),
+            RedAndBold(),
             TextButton(
               child: Text('append text'),
-              onPressed: () =>
-                  context.read<TabState>()!.textInput.text.value += ' text',
+              onPressed: context.read<TabState>()!.appendText,
             ),
             TextButton(
               child: Text('clear'),
-              onPressed: () =>
-                  context.read<TabState>()!.textInput.text.value = '',
+              onPressed: context.read<TabState>()!.clearText,
             ),
           ],
         ),
@@ -208,22 +208,34 @@ class TextPage extends StatelessWidget {
   }
 }
 
+class RedAndBold extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    ///we can use [BuildContext.select] to select for values.
+    ///The builder will rebuild when the value changes.
+    var isRedAndBold =
+        context.select<TabState, bool>((state) => state.isRedAndBold.value);
+    return Text("Red and bold: " + isRedAndBold.toString());
+  }
+}
+
 ///Here is the part we care about, correctly displaying our text.
 class DisplayText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    ///depending on the [TabState] in our widget scope will rebuild whenever
-    ///it emits a change i.e. whenever an element of [TabState.emittingChildren]
-    ///emits a change.
-    var state = context.depend<TabState>()!;
-
-    return Text(
-      state.textInput.text.value,
-      style: TextStyle(
-          color: state.color.value,
-          fontSize: 24,
-          fontWeight: state.bold.value ? FontWeight.bold : FontWeight.normal,
-          fontStyle: state.italic.value ? FontStyle.italic : FontStyle.normal),
-    );
+    return Reprovider(
+        selector: (TabState state) => state.textViewModel,
+        builder: (context, TextViewModel viewModel) {
+          return Text(
+            viewModel.text,
+            style: TextStyle(
+                color: viewModel.color,
+                fontSize: 24,
+                fontWeight:
+                    viewModel.bold ? FontWeight.bold : FontWeight.normal,
+                fontStyle:
+                    viewModel.italic ? FontStyle.italic : FontStyle.normal),
+          );
+        });
   }
 }

@@ -14,16 +14,17 @@ part of 'change_emitter_base.dart';
 // copies or substantial portions of the Software.
 
 class Provider<T extends ChangeEmitter> extends StatelessWidget {
-  Provider({required this.state, this.child, this.builder})
+  Provider(this.changeEmitter, {this.child, this.builder, Key? key})
       : assert((child != null && builder == null) ||
-            (child == null && builder != null));
-  final T state;
+            (child == null && builder != null)),
+        super(key: key);
+  final T changeEmitter;
   final Widget? child;
   final Widget Function(BuildContext context, T state)? builder;
   @override
   Widget build(BuildContext context) {
     return _InheritedProvider(
-        value: state,
+        value: changeEmitter,
         child: child != null
             ? child!
             : Builder(builder: (c) => builder!(c, c.depend<T>()!)));
@@ -48,6 +49,36 @@ class Reprovider<T extends ChangeEmitter, S extends ChangeEmitter>
             ? child!
             : Builder(builder: (c) => builder!(c, c.depend<S>()!)));
   }
+}
+
+///Takes a [ChangeEmitter] and rebuilds on changes. Does not dispose the
+///change emitter when [this] is disposed.
+class ChangeEmitterBuilder<C extends ChangeEmitter> extends StatefulWidget {
+  ChangeEmitterBuilder(this.changeEmitter, {required this.builder});
+  final C changeEmitter;
+  final Widget Function(BuildContext, C) builder;
+  @override
+  _ChangeEmitterBuilderState createState() => _ChangeEmitterBuilderState<C>();
+}
+
+class _ChangeEmitterBuilderState<C extends ChangeEmitter>
+    extends State<ChangeEmitterBuilder<C>> {
+  late StreamSubscription _sub;
+  @override
+  void initState() {
+    _sub = widget.changeEmitter.changes.listen((_) => setState(() {}));
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, widget.changeEmitter);
 }
 
 class _InheritedProvider<T extends ChangeEmitter> extends InheritedWidget {
@@ -196,7 +227,7 @@ extension ProviderExtension<T extends ChangeEmitter> on EmitterList<T> {
     return [
       for (var i = 0; i < length; i++)
         Provider<T>(
-          state: this[i],
+          this[i],
           child: child,
           builder: builder != null ? (c, s) => builder(c, i, s) : null,
         )

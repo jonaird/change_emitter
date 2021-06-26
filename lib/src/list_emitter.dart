@@ -314,14 +314,16 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
 }
 
 class SelectableEmitterList<E extends ChangeEmitter> extends EmitterContainer {
-  SelectableEmitterList(List<E> elements, {int selectedIndex = 0})
+  SelectableEmitterList(List<E> elements, {int? selectedIndex})
       : elements = EmitterList(elements),
-        selectedIndex = ValueEmitter<int>(selectedIndex);
+        selectedIndex = ValueEmitter(selectedIndex, keepHistory: true);
   final EmitterList<E> elements;
-  final ValueEmitter<int> selectedIndex;
-  late final selectedElement = ValueEmitter.reactive(
+  final ValueEmitter<int?> selectedIndex;
+  late final selection = ValueEmitter<E?>.reactive(
       reactTo: [elements, selectedIndex],
-      withValue: () => elements[selectedIndex.value]);
+      withValue: () => elements.isNotEmpty & selectedIndex.isNotNull
+          ? elements[selectedIndex.value!]
+          : null);
 
   void selectLast() => selectedIndex.value = elements.length - 1;
 
@@ -332,7 +334,29 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterContainer {
     selectLast();
   }
 
-  get children => [elements, selectedIndex, selectedElement];
+  void removeAndSelectPrevious(E element) {
+    var wasInList = elements.remove(element);
+    if (wasInList) {
+      if (selectedIndex.isNotNull & (selectedIndex.value! > 0))
+        selectedIndex.value = selectedIndex.value! - 1;
+      else if (elements.length == 0) selectedIndex.value = null;
+      elements.emit();
+    }
+  }
 
-  get emittingChildren => [elements, selectedIndex];
+  get children => {elements, selectedIndex, selection};
+
+  get dependencies => {elements, selectedIndex};
+}
+
+class NavigationStack<M extends ChangeEmitter> extends EmitterList<M> {
+  NavigationStack(List<M> stack) : super(stack);
+
+  void push(M pageModel) => this
+    ..add(pageModel)
+    ..emit();
+
+  void pop() => this
+    ..removeLast()
+    ..emit();
 }

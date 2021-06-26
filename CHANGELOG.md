@@ -1,3 +1,12 @@
+## [1.0.0-beta.3] - Breaking changes to EmitterContainer, Provider, new change emitters
+ - `EmitterContainer.emittingChildren` renamed to `dependencies`.
+ - `dependencies` and `children` are now sets instead of lists.
+ - `children` now defaults to an empty set instead of null.
+ - ParentEmitter is now a mixin
+ - added a ValueEmitter.late() constructor for when you want a nonnullable type but might not have a value right away
+
+ - added `NavigationStack` change emitter
+
 ## [1.0.0-beta.2] - Updated readme
 
 ## [1.0.0-beta.1] - Null Safety, removed Provider dependency

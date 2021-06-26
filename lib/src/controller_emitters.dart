@@ -4,11 +4,7 @@ part of 'change_emitter_base.dart';
 ///provide the [TextField] with the [controller] property. The controller will be disposed when
 ///[this] is disposed. Should only be used with one TextField at a time.
 class TextEditingEmitter extends EmitterContainer {
-  TextEditingEmitter(
-      {String text = '',
-      this.textShouldEmit = true,
-      this.composingShouldEmit = true,
-      this.selectionShouldEmit = true})
+  TextEditingEmitter({String text = ''})
       : text = ValueEmitter(text),
         controller = TextEditingController(text: text) {
     _subscription = changes.listen((change) {
@@ -25,31 +21,20 @@ class TextEditingEmitter extends EmitterContainer {
     });
   }
 
-  final bool textShouldEmit;
-
-  final bool selectionShouldEmit;
-
-  final bool composingShouldEmit;
-
   ///Control and read the text from a [TextField].
   final ValueEmitter<String> text;
 
   ///Control and read selection.
-  final ValueEmitter<TextSelection> selection =
-      ValueEmitter(TextSelection.collapsed(offset: -1));
+  final selection = ValueEmitter(TextSelection.collapsed(offset: -1));
 
   ///Control and read composition.
   final ValueEmitter<TextRange> composing = ValueEmitter(TextRange.empty);
   final TextEditingController controller;
   late StreamSubscription _subscription;
 
-  late final children = [text, selection, composing];
+  get children => {text, selection, composing};
 
-  late final emittingChildren = [
-    if (textShouldEmit) text,
-    if (selectionShouldEmit) selection,
-    if (composingShouldEmit) composing
-  ];
+  get dependencies => {text, selection, composing};
 
   void dispose() {
     _subscription.cancel();
@@ -87,7 +72,7 @@ class ScrollEmitter extends EmitterContainer {
           {required Duration duration, required Curve curve}) =>
       controller.animateTo(offset, duration: duration, curve: curve);
 
-  get children => [offset];
+  get children => {offset};
 
   dispose() {
     controller.dispose();

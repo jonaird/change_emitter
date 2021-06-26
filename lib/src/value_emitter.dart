@@ -2,26 +2,38 @@ part of 'change_emitter_base.dart';
 
 ///A simple [ChangeEmitter] that stores a value, emits a [ValueChange] whenever the value changes.
 class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
-  ValueEmitter(T value, {this.emitDetailedChanges = false})
-      : _value = value,
+  ValueEmitter(
+    T value, {
+    this.emitDetailedChanges = false,
+    this.keepHistory = false,
+  })  : _value = value,
         _isUnmodifiableView = false;
 
   ///A [ValueEmitter] that reacts to changes from a list of [ChangeEmitter]s and calls a builder function to get its new value.
-  ValueEmitter.reactive(
-      {required List<ChangeEmitter> reactTo,
-      required T Function() withValue,
-      this.emitDetailedChanges = false})
-      : _isUnmodifiableView = true,
+  ValueEmitter.reactive({
+    required List<ChangeEmitter> reactTo,
+    required T Function() withValue,
+    this.emitDetailedChanges = false,
+    this.keepHistory = false,
+  })  : _isUnmodifiableView = true,
         super(useSyncronousStream: true) {
     _value = withValue();
     _sub = StreamGroup.merge(reactTo.map((e) => e.changes))
         .listen((_) => _setValueWithoutUnmodifiableCheck(withValue()));
   }
 
+  ValueEmitter.late({
+    this.emitDetailedChanges = false,
+    this.keepHistory = false,
+  })  : assert(null is! T),
+        _isUnmodifiableView = false,
+        _initialized = false;
+
   ValueEmitter.unmodifiableView(ValueEmitter<T> emitter)
       : _isUnmodifiableView = true,
         _value = emitter.value,
         emitDetailedChanges = emitter.emitDetailedChanges,
+        keepHistory = emitter.keepHistory,
         super(useSyncronousStream: true) {
     _sub = emitter.values
         .listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
@@ -30,6 +42,9 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   late T _value;
   final bool _isUnmodifiableView;
   StreamSubscription? _sub;
+  bool _initialized = true;
+  final _history = <T>[];
+  final bool keepHistory;
 
   ///{@macro detailed}
   ///
@@ -63,31 +78,45 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
     if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
-      addChangeToStream(emitDetailedChanges
-          ? ValueChange(oldValue, newValue)
-          : ValueChange.any());
+      _history.add(oldValue);
+      _addChange(oldValue, newValue, false);
     }
+  }
+
+  void _addChange(T? oldValue, T newValue, bool quiet) {
+    addChangeToStream(emitDetailedChanges
+        ? ValueChange(oldValue, newValue, quiet: quiet)
+        : ValueChange.any(quiet: quiet));
   }
 
   ///Sets a new value and notifies listeners if the value is different than the old value.
   set value(T newValue) {
     if (_isUnmodifiableView)
       throw ('Tried to modify an unmodifiable value emitter view');
-    _setValueWithoutUnmodifiableCheck(newValue);
+    if (!_initialized) {
+      _value = newValue;
+      _initialized = true;
+      _addChange(null, newValue, false);
+    } else
+      _setValueWithoutUnmodifiableCheck(newValue);
   }
 
   ///Sets a new value and emits a change if the value is different than the old value but will
   ///not trigger any parent [EmitterContainer] to emit a change.
-  quietSet(T newValue) {
+  void quietSet(T newValue) {
     assert(!isDisposed);
     if (_isUnmodifiableView)
       throw ('Tried to modify an unmodifiable value emitter view');
-    if (_value != newValue) {
+
+    if (!_initialized) {
+      _value = newValue;
+      _initialized = true;
+      _addChange(null, newValue, true);
+    } else if (_value != newValue) {
       var oldValue = _value;
       _value = newValue;
-      addChangeToStream(emitDetailedChanges
-          ? ValueChange(oldValue, newValue, quiet: true)
-          : ValueChange.any(quiet: true));
+      _history.add(oldValue);
+      _addChange(oldValue, newValue, true);
     }
   }
 
@@ -96,6 +125,8 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
     assert(!isDisposed);
     return _value;
   }
+
+  T? get previous => _history.isNotEmpty ? _history.last : null;
 
   ///Disposes resources.
   @mustCallSuper
