@@ -31,7 +31,6 @@ abstract class ChangeEmitter<C extends Change> {
 
   ChangeEmitter? get parent => _parent;
 
-  @protected
   T? findAncestorOfExactType<T extends ChangeEmitter>() {
     var ancestor = parent;
     while (ancestor != null)

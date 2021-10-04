@@ -19,8 +19,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   bool _dirty = false;
 
   ///Initializes with a list of elements.
-  ListEmitter(List<E> list, {this.emitDetailedChanges = false})
-      : _list = List.from(list);
+  ListEmitter(List<E> list, {this.emitDetailedChanges = false}) : _list = List.from(list);
 
   ///{@template detailed}
   ///Whether to emit changes that include detailed information about the specific change.
@@ -42,8 +41,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     var oldValue = _list[index];
     if (oldValue != value) {
       _list[index] = value;
-      if (emitDetailedChanges)
-        _changes.add(ListModification<E>(index, oldValue, value));
+      if (emitDetailedChanges) _changes.add(ListModification<E>(index, oldValue, value));
       _dirty = true;
     }
   }
@@ -93,15 +91,14 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.add(element);
     _dirty = true;
-    if (emitDetailedChanges)
-      _changes.add(ListModification.insert(length, element));
+    if (emitDetailedChanges) _changes.add(ListModification.insert(length, element));
   }
 
   ///Appends all objects of [iterable] to the end of this list.
   ///
   ///Extends the length of the list by the number of objects in [iterable].
   @override
-  void addAll(Iterable iterable) {
+  void addAll(Iterable<E> iterable) {
     assert(!isDisposed);
     for (var elem in iterable) add(elem);
   }
@@ -116,8 +113,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.insert(index, element);
     _dirty = true;
-    if (emitDetailedChanges)
-      _changes.add(ListModification.insert(index, element));
+    if (emitDetailedChanges) _changes.add(ListModification.insert(index, element));
   }
 
   ///Removes the object at position [index] from this list.
@@ -132,8 +128,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     var removed = _list.removeAt(index);
     _dirty = true;
-    if (emitDetailedChanges)
-      _changes.add(ListModification.remove(index, removed));
+    if (emitDetailedChanges) _changes.add(ListModification.remove(index, removed));
     return removed;
   }
 
@@ -174,8 +169,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///
   ///An object [o] satisfies [test] if [test(o)] is true.
   @override
-  void retainWhere(bool Function(E element) test) =>
-      removeWhere((element) => !test(element));
+  void retainWhere(bool Function(E element) test) => removeWhere((element) => !test(element));
 
   /// Removes the objects in the range [start] inclusive to [end] exclusive.
   ///
@@ -201,8 +195,7 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     for (var elem in newContents) if (i < end) this[i++] = elem;
     if (end - start < newContents.length)
       for (var elem in newContents.skip(end - start)) insert(i++, elem);
-    if (end - start > newContents.length)
-      removeRange(end - newContents.length, end);
+    if (end - start > newContents.length) removeRange(end - newContents.length, end);
   }
 }
 
@@ -214,8 +207,7 @@ class ListChange<E> extends ChangeWithAny {
 
   static final _cache = <Type, ListChange>{};
 
-  ListChange(this.modifications, {bool quiet = false})
-      : super(quiet: quiet, any: false);
+  ListChange(this.modifications, {bool quiet = false}) : super(quiet: quiet, any: false);
   ListChange._any({bool quiet = false})
       : modifications = null,
         super(quiet: quiet, any: true);
@@ -258,8 +250,7 @@ class ListModification<E> {
         isRemove = false,
         isInsert = true;
 
-  String toString() =>
-      'Modification at index: $index, insert: $insert, remove: $remove';
+  String toString() => 'Modification at index: $index, insert: $insert, remove: $remove';
 
   ///Whether the modification is both [insert] and [remove].
   bool get isReplace => isInsert && isRemove;
