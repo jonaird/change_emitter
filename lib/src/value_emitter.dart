@@ -86,8 +86,8 @@ class ValueEmitter<T> extends ChangeEmitter {
 
   void _addChange(T? oldValue, T newValue, bool quiet) {
     addChangeToStream(emitDetailedChanges
-        ? ValueChange(oldValue, newValue, quiet: quiet)
-        : ValueChange.any(quiet: quiet));
+        ? ValueChange<T>(oldValue, newValue, quiet: quiet)
+        : ValueChange<T>.any(quiet: quiet));
   }
 
   ///Sets a new value and notifies listeners if the value is different than the old value.

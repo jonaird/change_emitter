@@ -57,12 +57,12 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     ListChange<E>? change;
     if (_dirty && !quiet)
       emitDetailedChanges
-          ? change = ListChange(List.from(_modifications))
-          : change = ListChange.any();
+          ? change = ListChange<E>(List.from(_modifications))
+          : change = ListChange<E>.any();
     else if (_dirty)
       emitDetailedChanges
-          ? change = ListChange(_modifications, quiet: true)
-          : change = ListChange.any(quiet: true);
+          ? change = ListChange<E>(_modifications, quiet: true)
+          : change = ListChange<E>.any(quiet: true);
     if (change != null) addChangeToStream(change);
     _modifications.clear();
     _dirty = false;
