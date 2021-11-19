@@ -15,8 +15,7 @@ part of 'change_emitter_base.dart';
 
 class Provider<T extends ChangeEmitter> extends StatelessWidget {
   Provider(this.changeEmitter, {this.child, this.builder, Key? key})
-      : assert((child != null && builder == null) ||
-            (child == null && builder != null)),
+      : assert((child != null && builder == null) || (child == null && builder != null)),
         super(key: key);
   final T changeEmitter;
   final Widget? child;
@@ -25,17 +24,13 @@ class Provider<T extends ChangeEmitter> extends StatelessWidget {
   Widget build(BuildContext context) {
     return _InheritedProvider(
         value: changeEmitter,
-        child: child != null
-            ? child!
-            : Builder(builder: (c) => builder!(c, c.depend<T>()!)));
+        child: child != null ? child! : Builder(builder: (c) => builder!(c, c.depend<T>()!)));
   }
 }
 
-class Reprovider<T extends ChangeEmitter, S extends ChangeEmitter>
-    extends StatelessWidget {
+class Reprovider<T extends ChangeEmitter, S extends ChangeEmitter> extends StatelessWidget {
   Reprovider({required this.selector, this.child, this.builder})
-      : assert((child != null && builder == null) ||
-            (child == null && builder != null));
+      : assert((child != null && builder == null) || (child == null && builder != null));
   final S Function(T state) selector;
   final Widget? child;
   final Widget Function(BuildContext context, S state)? builder;
@@ -45,9 +40,17 @@ class Reprovider<T extends ChangeEmitter, S extends ChangeEmitter>
     var state = context.select(selector)!;
     return _InheritedProvider<S>(
         value: state,
-        child: child != null
-            ? child!
-            : Builder(builder: (c) => builder!(c, c.depend<S>()!)));
+        child: child != null ? child! : Builder(builder: (c) => builder!(c, c.depend<S>()!)));
+  }
+}
+
+class Consumer<C extends ChangeEmitter> extends StatelessWidget {
+  const Consumer({required this.builder, Key? key}) : super(key: key);
+  final Widget Function(BuildContext context, C emitter) builder;
+  @override
+  Widget build(BuildContext context) {
+    var emitter = context.depend<C>()!;
+    return builder(context, emitter);
   }
 }
 
@@ -77,22 +80,18 @@ class _ChangeEmitterBuilderState<C extends ChangeEmitter>
   }
 
   @override
-  Widget build(BuildContext context) =>
-      widget.builder(context, widget.changeEmitter);
+  Widget build(BuildContext context) => widget.builder(context, widget.changeEmitter);
 }
 
 class _InheritedProvider<T extends ChangeEmitter> extends InheritedWidget {
-  _InheritedProvider({required this.value, required Widget child})
-      : super(child: child);
+  _InheritedProvider({required this.value, required Widget child}) : super(child: child);
   final T value;
 
   @override
-  updateShouldNotify(_InheritedProvider<T> oldWidget) =>
-      oldWidget.value != value;
+  updateShouldNotify(_InheritedProvider<T> oldWidget) => oldWidget.value != value;
 
   @override
-  _InheritedProviderElement<T> createElement() =>
-      _InheritedProviderElement(this);
+  _InheritedProviderElement<T> createElement() => _InheritedProviderElement(this);
 }
 
 class _Dependencies<T extends ChangeEmitter> {
@@ -104,8 +103,7 @@ class _Dependencies<T extends ChangeEmitter> {
 
 typedef _SelectorAspect<T extends ChangeEmitter> = bool Function(T);
 
-class _InheritedProviderElement<T extends ChangeEmitter>
-    extends InheritedElement {
+class _InheritedProviderElement<T extends ChangeEmitter> extends InheritedElement {
   _InheritedProviderElement(_InheritedProvider<T> widget) : super(widget) {
     _subscribeToChanges();
   }
@@ -145,8 +143,7 @@ class _InheritedProviderElement<T extends ChangeEmitter>
     else if (!dependencies.fullDependency) {
       if (dependencies.shouldClearSelectors) dependencies.selectors.clear();
       dependencies.selectors.add(aspect as _SelectorAspect<T>);
-      if (!dependencies.addedPostFrameCallback)
-        _addPostFrameCallback(dependencies);
+      if (!dependencies.addedPostFrameCallback) _addPostFrameCallback(dependencies);
     }
   }
 
@@ -159,8 +156,7 @@ class _InheritedProviderElement<T extends ChangeEmitter>
   }
 
   @override
-  void notifyDependent(
-      covariant _InheritedProvider oldWidget, Element dependent) {
+  void notifyDependent(covariant _InheritedProvider oldWidget, Element dependent) {
     var shouldNotify = false;
     if (oldWidget.value != value) shouldNotify = true;
     var dependencies = getDependencies(dependent) as _Dependencies<T>;
@@ -220,10 +216,8 @@ extension ProviderExtension<T extends ChangeEmitter> on EmitterList<T> {
   ///To use this method you must depend on this EmitterList's [parent] in the build method in which
   ///this method is called or your app may display incorrect state.
   List<Widget> toProviderList(
-      {Widget? child,
-      Widget Function(BuildContext context, int index, T state)? builder}) {
-    assert((child == null && builder != null) ||
-        (child != null && builder == null));
+      {Widget? child, Widget Function(BuildContext context, int index, T state)? builder}) {
+    assert((child == null && builder != null) || (child != null && builder == null));
     return [
       for (var i = 0; i < length; i++)
         Provider<T>(

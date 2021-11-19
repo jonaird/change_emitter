@@ -60,6 +60,9 @@ void main() {
       map.remove('two');
     }
 
+    visitMap(map);
+    visitMap(mapEmitter);
+
     expect(eq.equals(map, mapEmitter), true);
   });
 
@@ -93,5 +96,39 @@ void main() {
       ..emit();
     var ancestor = secondExample.findAncestorOfExactType<ExampleEmitter>();
     expect(example, ancestor);
+  });
+
+  test('transactions work on Lists', () async {
+    final list = ListEmitter([1, 2, 3, 4]);
+    var numEmits = 0;
+    list.changes.listen((event) => numEmits++);
+    list.startTransaction();
+    list.add(3);
+    list.remove(2);
+    list[0] = 6;
+    list.endTransaction();
+    await Future.delayed(Duration(milliseconds: 300));
+    expect(numEmits, 1);
+  });
+  test('transactions work on maps', () async {
+    final map = MapEmitter({0: 1, 4: 5, 3: 4});
+    var numEmits = 0;
+    map.changes.listen((event) => numEmits++);
+    map.startTransaction();
+    map.addEntries([MapEntry(5, 3)]);
+    map.remove(2);
+    map[0] = 6;
+    map.endTransaction();
+    await Future.delayed(Duration(milliseconds: 300));
+    expect(numEmits, 1);
+  });
+
+  test('list emits once on methods that nest other mutation methods', () async {
+    final list = ListEmitter([2, 3, 4, 5]);
+    var numEmits = 0;
+    list.changes.listen((event) => numEmits++);
+    list.addAll([4, 5, 67, 3]);
+    await Future.delayed(Duration(milliseconds: 300));
+    expect(numEmits, 1);
   });
 }

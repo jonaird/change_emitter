@@ -14,12 +14,17 @@ part of 'change_emitter_base.dart';
 ///```
 ///
 class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
-  final List<E> _list;
-  final _changes = <ListModification<E>>[];
-  bool _dirty = false;
-
   ///Initializes with a list of elements.
   ListEmitter(List<E> list, {this.emitDetailedChanges = false}) : _list = List.from(list);
+  final List<E> _list;
+  final _modifications = <ListModification<E>>[];
+  bool _dirty = false;
+  var _transactionStarted = false;
+
+  ///Some mutating methods call other mutating methods. In these cases, only the top most
+  ///method should trigger [[this]] to emit a change. Thus we have to track the depth
+  ///of the call stack.
+  var _mutationDepth = 0;
 
   ///{@template detailed}
   ///Whether to emit changes that include detailed information about the specific change.
@@ -31,6 +36,35 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///See [ListChange.modifications].
   final bool emitDetailedChanges;
 
+  void startTransaction() => _transactionStarted = true;
+  void endTransaction({bool quiet = false}) {
+    emit(quiet: quiet);
+    _transactionStarted = false;
+  }
+
+  void _conditionalEmit() {
+    if (!_transactionStarted && _mutationDepth == 0) emit();
+  }
+
+  ///Emits a change if the list has been modified since the last emit (or since it was initialized).
+  ///
+  ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
+  void emit({bool quiet = false}) {
+    assert(!isDisposed);
+    ListChange<E>? change;
+    if (_dirty && !quiet)
+      emitDetailedChanges
+          ? change = ListChange(List.from(_modifications))
+          : change = ListChange.any();
+    else if (_dirty)
+      emitDetailedChanges
+          ? change = ListChange(_modifications, quiet: true)
+          : change = ListChange.any(quiet: true);
+    if (change != null) addChangeToStream(change);
+    _modifications.clear();
+    _dirty = false;
+  }
+
   E operator [](int index) {
     assert(!isDisposed);
     return _list[index];
@@ -41,9 +75,12 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     var oldValue = _list[index];
     if (oldValue != value) {
       _list[index] = value;
-      if (emitDetailedChanges) _changes.add(ListModification<E>(index, oldValue, value));
+      if (emitDetailedChanges)
+        _modifications.add(ListModification<E>(index, oldValue, value, true, true));
       _dirty = true;
     }
+
+    _conditionalEmit();
   }
 
   ///The number of objects in this list.
@@ -56,31 +93,15 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
 
   set length(int newLength) {
     assert(!isDisposed);
+    _mutationDepth++;
     if (newLength > length && null is E) //checks if E is nullable
       while (length != newLength) (this as ListEmitter<E?>).add(null);
     else if (newLength > length)
       throw ('can\t set a larger list length for nonNullable generic type $E');
     else
       while (length != newLength) removeAt(newLength);
-  }
-
-  ///Emits a change if the list has been modified since the last emit (or since it was initialized).
-  ///
-  ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
-  void emit({bool quiet = false}) {
-    assert(!isDisposed);
-    ListChange<E>? change;
-    if (_dirty && !quiet)
-      emitDetailedChanges
-          ? change = ListChange(List.from(_changes))
-          : change = ListChange.any();
-    else if (_dirty)
-      emitDetailedChanges
-          ? change = ListChange(_changes, quiet: true)
-          : change = ListChange.any(quiet: true);
-    if (change != null) addChangeToStream(change);
-    _changes.clear();
-    _dirty = false;
+    _mutationDepth--;
+    _conditionalEmit();
   }
 
   ///Adds [value] to the end of this list, extending the length by one.
@@ -91,7 +112,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.add(element);
     _dirty = true;
-    if (emitDetailedChanges) _changes.add(ListModification.insert(length, element));
+    if (emitDetailedChanges) _modifications.add(ListModification.insert(length, element));
+    _conditionalEmit();
   }
 
   ///Appends all objects of [iterable] to the end of this list.
@@ -100,7 +122,10 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   void addAll(Iterable<E> iterable) {
     assert(!isDisposed);
-    for (var elem in iterable) add(elem);
+    _mutationDepth++;
+    super.addAll(iterable);
+    _mutationDepth--;
+    _conditionalEmit();
   }
 
   ///Inserts the object at position [index] in this list.
@@ -113,7 +138,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     _list.insert(index, element);
     _dirty = true;
-    if (emitDetailedChanges) _changes.add(ListModification.insert(index, element));
+    if (emitDetailedChanges) _modifications.add(ListModification.insert(index, element));
+    _conditionalEmit();
   }
 
   ///Removes the object at position [index] from this list.
@@ -128,7 +154,8 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
     assert(!isDisposed);
     var removed = _list.removeAt(index);
     _dirty = true;
-    if (emitDetailedChanges) _changes.add(ListModification.remove(index, removed));
+    if (emitDetailedChanges) _modifications.add(ListModification.remove(index, removed));
+    _conditionalEmit();
     return removed;
   }
 
@@ -140,9 +167,11 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   bool remove(element) {
     assert(!isDisposed);
-
+    _mutationDepth++;
     var index = _list.indexOf(element as E);
     if (index > -1) removeAt(index);
+    _mutationDepth--;
+    _conditionalEmit();
     return index > -1;
   }
 
@@ -152,7 +181,10 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   void removeWhere(bool Function(E element) test) {
     assert(!isDisposed);
+    _mutationDepth++;
     for (E elem in List.from(_list.where(test))) remove(elem);
+    _mutationDepth--;
+    _conditionalEmit();
   }
 
   ///Pops and returns the last object in this list.
@@ -160,8 +192,11 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///The list must not be empty.
   @override
   E removeLast() {
+    _mutationDepth++;
     var last = this.last;
     removeAt(length - 1);
+    _mutationDepth--;
+    _conditionalEmit();
     return last;
   }
 
@@ -169,7 +204,12 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///
   ///An object [o] satisfies [test] if [test(o)] is true.
   @override
-  void retainWhere(bool Function(E element) test) => removeWhere((element) => !test(element));
+  void retainWhere(bool Function(E element) test) {
+    _mutationDepth++;
+    removeWhere((element) => !test(element));
+    _mutationDepth--;
+    _conditionalEmit();
+  }
 
   /// Removes the objects in the range [start] inclusive to [end] exclusive.
   ///
@@ -177,7 +217,26 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   void removeRange(int start, int end) {
     assert(0 <= start && start <= end && end <= length);
+    _mutationDepth++;
     for (var i = start; i < end; i++) removeAt(start);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void fillRange(int start, int end, [E? fill]) {
+    _mutationDepth++;
+    super.fillRange(start, end, fill);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void setRange(int start, int end, Iterable<E> iterable, [int skipCount = 0]) {
+    _mutationDepth++;
+    super.setRange(start, end, iterable, skipCount);
+    _mutationDepth--;
+    _conditionalEmit();
   }
 
   ///Removes the objects in the range [start] inclusive to [end] exclusive and inserts the contents of [replacement] in its place.
@@ -191,11 +250,52 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   @override
   void replaceRange(int start, int end, Iterable<E> newContents) {
     assert(0 <= start && start <= end && end <= length);
+    _mutationDepth++;
     var i = start;
     for (var elem in newContents) if (i < end) this[i++] = elem;
     if (end - start < newContents.length)
       for (var elem in newContents.skip(end - start)) insert(i++, elem);
     if (end - start > newContents.length) removeRange(end - newContents.length, end);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void shuffle([Random? random]) {
+    random ??= Random();
+
+    int length = this.length;
+    while (length > 1) {
+      int pos = random.nextInt(length);
+      length -= 1;
+      var tmp = this[length];
+      this[length] = this[pos];
+      this[pos] = tmp;
+      if (this[pos] != this[length]) {
+        _modifications.addAll([
+          ListModification(length, this[pos], this[length], true, true),
+          ListModification(pos, this[length], this[pos], true, true)
+        ]);
+        _dirty = true;
+      }
+    }
+    _conditionalEmit();
+  }
+
+  @override
+  void insertAll(int index, Iterable<E> iterable) {
+    _mutationDepth++;
+    super.insertAll(index, iterable);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void setAll(int index, Iterable<E> iterable) {
+    _mutationDepth++;
+    super.setAll(index, iterable);
+    _mutationDepth--;
+    _conditionalEmit();
   }
 }
 
@@ -224,7 +324,8 @@ class ListChange<E> extends ChangeWithAny {
 ///A single atomic modification on a [ListEmitter]. Can be an [insert], a [remove] or replace at a particular [index].
 class ListModification<E> {
   ///The index at which the modification ocurred.
-  final int index;
+  ///must be nullable so that subtypes can create changes that don't involve an index
+  final int? index;
 
   ///The value inserted at the [index] if any.
   final E? insert;
@@ -238,9 +339,7 @@ class ListModification<E> {
   ///Whether [this] is a remove operation.
   final bool isRemove;
 
-  ListModification(this.index, this.remove, this.insert)
-      : isInsert = true,
-        isRemove = true;
+  ListModification(this.index, this.remove, this.insert, this.isInsert, this.isRemove);
   ListModification.remove(this.index, this.remove)
       : insert = null,
         isRemove = true,
@@ -270,9 +369,11 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
   late StreamSubscription _sub;
 
   void registerChild(ChangeEmitter child) {
-    child._parent = this;
-    child.didRegisterParent();
-    if (child is ParentEmitter) child.registerChildren();
+    if (child._parent != this) {
+      child._parent = this;
+      child.didRegisterParent();
+      if (child is ParentEmitter) child.registerChildren();
+    }
   }
 
   void registerChildren() {
@@ -304,50 +405,131 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
   }
 }
 
-class SelectableEmitterList<E extends ChangeEmitter> extends EmitterContainer {
-  SelectableEmitterList(List<E> elements, {int? selectedIndex})
-      : elements = EmitterList(elements),
-        selectedIndex = ValueEmitter(selectedIndex, keepHistory: true);
-  final EmitterList<E> elements;
-  final ValueEmitter<int?> selectedIndex;
-  late final selection = ValueEmitter<E?>.reactive(
-      reactTo: [elements, selectedIndex],
-      withValue: () => elements.isNotEmpty & selectedIndex.isNotNull
-          ? elements[selectedIndex.value!]
-          : null);
-
-  void selectLast() => selectedIndex.value = elements.length - 1;
-
-  void addAndSelect(E element) {
-    elements
-      ..add(element)
-      ..emit(quiet: true);
-    selectLast();
-  }
-
-  void removeAndSelectPrevious(E element) {
-    var wasInList = elements.remove(element);
-    if (wasInList) {
-      if (selectedIndex.isNotNull & (selectedIndex.value! > 0))
-        selectedIndex.value = selectedIndex.value! - 1;
-      else if (elements.length == 0) selectedIndex.value = null;
-      elements.emit();
-    }
-  }
-
-  get children => {elements, selectedIndex, selection};
-
-  get dependencies => {elements, selectedIndex};
-}
-
 class NavigationStack<M extends ChangeEmitter> extends EmitterList<M> {
   NavigationStack(List<M> stack) : super(stack);
 
-  void push(M pageModel) => this
-    ..add(pageModel)
-    ..emit();
+  void replaceAll(Iterable<M> replacement) {
+    replaceRange(0, length, replacement);
+  }
 
-  void pop() => this
-    ..removeLast()
-    ..emit();
+  void push(M pageModel) => add(pageModel);
+
+  void pop() => removeLast();
+}
+
+class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
+  SelectableEmitterList(List<E> elements, {int? selectedIndex})
+      : _selectedIndexEmitter = ValueEmitter(selectedIndex, keepHistory: true),
+        super(elements);
+  int? _selectedindex;
+  int? get selectedIndex => _selectedindex;
+  set selectedIndex(int? index) {
+    if (index != null) RangeError.checkValueInInterval(index, 0, length - 1);
+    if (selectedIndex != index) {
+      final oldIndex = _selectedindex;
+      _selectedindex = index;
+      _selectedIndexEmitter.value = index;
+      _modifications.add(SelectableEmitterListModification(
+          oldIndex, null, null, index, _SEMType.selectionChange));
+      if (!_transactionStarted) emit();
+    }
+  }
+
+  final ValueEmitter<int?> _selectedIndexEmitter;
+  late final selectedIndexEmitter = _selectedIndexEmitter.unmodifiableView;
+  late final selection = ValueEmitter<E?>.reactive(
+      reactTo: [this, selectedIndexEmitter],
+      withValue: () => isNotEmpty && selectedIndexEmitter.isNotNull
+          ? this[selectedIndexEmitter.value!]
+          : null);
+
+  @override
+  Stream<SelectableEmitterListChange<E>> get changes =>
+      super.changes.cast<SelectableEmitterListChange<E>>();
+
+  @override
+  void addChangeToStream(ListChange<E> change) {
+    final newChange = _SELFCFromLC<E>(change);
+    super.addChangeToStream(newChange);
+  }
+
+  void selectLast() => selectedIndex = length - 1;
+
+  void addAndSelect(E element) {
+    final transactionStarted = _transactionStarted;
+    if (!transactionStarted) startTransaction();
+    add(element);
+    selectLast();
+    if (!transactionStarted) endTransaction();
+  }
+
+  ///returns whether the element was in the list. If the element was the first in the list,
+  ///selects null;
+  bool removeAndSelectPrevious(E element) {
+    final tx = _transactionStarted;
+    if (!tx) startTransaction();
+    var wasInList = remove(element);
+    if (wasInList) {
+      if (selectedIndex != null && (selectedIndex! > 0))
+        selectedIndex = selectedIndexEmitter.value! - 1;
+      else if (length == 0) selectedIndexEmitter.value = null;
+      if (!tx) endTransaction();
+    }
+    return wasInList;
+  }
+
+  @override
+  void dispose() {
+    _selectedIndexEmitter.dispose();
+    selection.dispose();
+    super.dispose();
+  }
+}
+
+class SelectableEmitterListChange<E extends ChangeEmitter> extends ListChange<E> {
+  SelectableEmitterListChange(List<SelectableEmitterListModification<E>> modifications,
+      {bool quiet = false})
+      : super(modifications, quiet: quiet);
+}
+
+class SelectableEmitterListModification<E extends ChangeEmitter> extends ListModification<E> {
+  SelectableEmitterListModification(
+      int? index, E? previous, E? next, this.newSelection, _SEMType type)
+      : isSelectionChange = type == _SEMType.selectionChange,
+        super(index, previous, next, _isInsert(type), _isRemove(type));
+  final int? newSelection;
+  final bool isSelectionChange;
+}
+
+enum _SEMType { insert, remove, replace, selectionChange }
+
+bool _isInsert(_SEMType type) {
+  return type == _SEMType.insert || type == _SEMType.replace;
+}
+
+bool _isRemove(_SEMType type) {
+  return type == _SEMType.remove || type == _SEMType.replace;
+}
+
+SelectableEmitterListChange<E> _SELFCFromLC<E extends ChangeEmitter>(ListChange<E> change) {
+  return SelectableEmitterListChange(
+      [for (final modification in change.modifications!) _SELMFromLM<E>(modification)],
+      quiet: change.quiet);
+}
+
+SelectableEmitterListModification<E> _SELMFromLM<E extends ChangeEmitter>(
+    ListModification<E> modification) {
+  if (modification is SelectableEmitterListModification)
+    return modification as SelectableEmitterListModification<E>;
+  return SelectableEmitterListModification(modification.index, modification.remove,
+      modification.insert, null, _typeFromLM(modification.isRemove, modification.isInsert));
+}
+
+_SEMType _typeFromLM(bool isRemove, bool isInsert) {
+  if (isInsert && isRemove)
+    return _SEMType.replace;
+  else if (isInsert)
+    return _SEMType.insert;
+  else
+    return _SEMType.remove;
 }

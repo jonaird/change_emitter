@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:async/async.dart';
+import 'dart:math';
 //import 'package:provider/provider.dart';
 
 part 'map_emitter.dart';
@@ -123,8 +124,8 @@ mixin ParentEmitter<C extends Change> on ChangeEmitter<C> {
 ///```
 ///
 ///
-abstract class EmitterContainer<C extends ContainerChange>
-    extends ChangeEmitter<C> with ParentEmitter {
+abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter<C>
+    with ParentEmitter {
   EmitterContainer({this.emitDetailedChanges = false});
 
   void registerChildren() {
@@ -156,10 +157,11 @@ abstract class EmitterContainer<C extends ContainerChange>
 
   Stream<C> _getStream() {
     var streams = dependencies
-        .map((e) => e.changes.where((event) => !event.quiet).map((event) =>
-            containerChangeFromDependency(dependency: e, change: event)))
+        .map((e) => e.changes
+            .where((event) => !event.quiet)
+            .map((event) => containerChangeFromDependency(dependency: e, change: event)))
         .toList()
-          ..add(_controller.stream);
+      ..add(_controller.stream);
 
     return StreamGroup.merge<C>(streams).asBroadcastStream();
   }
@@ -189,8 +191,7 @@ abstract class EmitterContainer<C extends ContainerChange>
   }
 }
 
-abstract class RootEmitter<C extends ContainerChange>
-    extends EmitterContainer<C> {
+abstract class RootEmitter<C extends ContainerChange> extends EmitterContainer<C> {
   RootEmitter({bool emitDetailedChanges = false})
       : super(emitDetailedChanges: emitDetailedChanges) {
     registerChildren();
@@ -225,8 +226,7 @@ class ContainerChange extends ChangeWithAny {
   }
 }
 
-abstract class ListenableEmitterMixin extends ChangeEmitter
-    implements Listenable {
+mixin ListenableEmitterMixin<C extends Change> on ChangeEmitter<C> implements Listenable {
   final _listeners = <VoidCallback, StreamSubscription>{};
 
   @override
@@ -237,5 +237,9 @@ abstract class ListenableEmitterMixin extends ChangeEmitter
   @override
   void removeListener(VoidCallback listener) {
     _listeners.remove(listener)?.cancel();
+  }
+
+  void disposeListeners() {
+    for (var sub in _listeners.values) sub.cancel();
   }
 }

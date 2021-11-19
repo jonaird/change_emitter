@@ -2,21 +2,33 @@ part of 'change_emitter_base.dart';
 
 ///A [ChangeEmitter] implementation of a map. Modifying a [MapEmitter] won't automatically
 ///emit a change. To emit a change after it has been modified, call [emit].
-class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
-    with MapMixin<K, V> {
+class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>> with MapMixin<K, V> {
+  MapEmitter(Map<K, V> map, {this.emitDetailedChanges = false}) : _map = Map.from(map);
   Map<K, V> _map;
 
   final _changes = <MapModification<K, V>>[];
   bool _dirty = false;
+  var _transactionStarted = false;
 
-  MapEmitter(Map<K, V> map, {this.emitDetailedChanges = false})
-      : _map = Map.from(map);
+  ///Some mutating methods call other mutating methods. In these cases, only the top most
+  ///method should trigger [[this]] to emit a change. Thus we have to track the depth
+  ///of the call stack.
+  var _mutationDepth = 0;
 
   ///{@macro detailed}
   ///
   ///Detailed changes will include a list of modifications.
   ///See [MapChange.modifications].
   final bool emitDetailedChanges;
+  void startTransaction() => _transactionStarted = true;
+  void endTransaction({bool quiet = false}) {
+    emit(quiet: quiet);
+    _transactionStarted = false;
+  }
+
+  void _conditionalEmit() {
+    if (!_transactionStarted && _mutationDepth == 0) emit();
+  }
 
   ///Emits a change if the map has been modified since the last emit (or since it was initialized).
   ///
@@ -24,12 +36,10 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
   emit({bool quiet = false}) {
     assert(!isDisposed);
     if (_dirty && !quiet)
-      addChangeToStream(
-          emitDetailedChanges ? MapChange(_changes) : MapChange.any());
+      addChangeToStream(emitDetailedChanges ? MapChange(_changes) : MapChange.any());
     else if (_dirty)
-      addChangeToStream(emitDetailedChanges
-          ? MapChange(_changes, quiet: true)
-          : MapChange.any(quiet: true));
+      addChangeToStream(
+          emitDetailedChanges ? MapChange(_changes, quiet: true) : MapChange.any(quiet: true));
     _changes.clear();
     _dirty = false;
   }
@@ -60,8 +70,7 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
       var oldVal = _map[key];
       if (value != oldVal) {
         _map[key] = value;
-        if (emitDetailedChanges)
-          _changes.add(MapModification(key, oldVal!, value));
+        if (emitDetailedChanges) _changes.add(MapModification(key, oldVal!, value));
         _dirty = true;
       }
     } else {
@@ -69,6 +78,57 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
       if (emitDetailedChanges) _changes.add(MapModification.insert(key, value));
       _dirty = true;
     }
+    _conditionalEmit();
+  }
+
+  @override
+  void addAll(Map<K, V> other) {
+    _mutationDepth++;
+    super.addAll(other);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  V putIfAbsent(K key, V Function() ifAbsent) {
+    _mutationDepth++;
+    final val = super.putIfAbsent(key, ifAbsent);
+    _mutationDepth--;
+    _conditionalEmit();
+    return val;
+  }
+
+  @override
+  V update(K key, V Function(V value) update, {V Function()? ifAbsent}) {
+    _mutationDepth++;
+    final val = super.update(key, update, ifAbsent: ifAbsent);
+    _mutationDepth--;
+    _conditionalEmit();
+    return val;
+  }
+
+  @override
+  void updateAll(V Function(K key, V value) update) {
+    _mutationDepth++;
+    super.updateAll(update);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void addEntries(Iterable<MapEntry<K, V>> newEntries) {
+    _mutationDepth++;
+    super.addEntries(newEntries);
+    _mutationDepth--;
+    _conditionalEmit();
+  }
+
+  @override
+  void removeWhere(bool Function(K key, V value) test) {
+    _mutationDepth++;
+    super.removeWhere(test);
+    _mutationDepth--;
+    _conditionalEmit();
   }
 
   ///Removes all pairs from the map.
@@ -83,6 +143,7 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
           _changes.add(MapModification.remove(entry.key, entry.value));
       _map.clear();
     }
+    _conditionalEmit();
   }
 
   ///Removes [key] and its associated value, if present, from the map.
@@ -96,10 +157,10 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
     V? removed;
     if (keys.contains(key)) {
       removed = _map.remove(key);
-      if (emitDetailedChanges)
-        _changes.add(MapModification.remove(key as K, removed));
+      if (emitDetailedChanges) _changes.add(MapModification.remove(key as K, removed));
       _dirty = true;
     }
+    _conditionalEmit();
     return removed;
   }
 }
@@ -110,8 +171,7 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>>
 class MapChange<K, V> extends ChangeWithAny {
   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
   final List<MapModification<K, V>>? modifications;
-  MapChange(this.modifications, {bool quiet = false})
-      : super(quiet: quiet, any: false);
+  MapChange(this.modifications, {bool quiet = false}) : super(quiet: quiet, any: false);
 
   static final _cache = <Type, Map<Type, MapChange>>{};
 
