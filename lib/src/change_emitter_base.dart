@@ -22,11 +22,14 @@ part 'widgets.dart';
 ///
 ///This library also comes with wigdets to use with the [Provider package](https://github.com/rrousselGit/provider)
 ///to provide and consume state for your app. See [ChangeEmitterProvider] and [ChangeEmitterSelector].
-abstract class ChangeEmitter<C extends Change> {
+///
+///To implement an emitter with custom Change objects override [changes] and cast it
+///to the appropriate type.
+abstract class ChangeEmitter {
   ChangeEmitter({bool useSyncronousStream = false})
-      : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
+      : _controller = StreamController<Change>.broadcast(sync: useSyncronousStream);
 
-  final StreamController<C> _controller;
+  final StreamController<Change> _controller;
 
   ChangeEmitter? _parent;
 
@@ -49,10 +52,10 @@ abstract class ChangeEmitter<C extends Change> {
 
   ///Used by subclasses to broadcast [Change]s.
   @protected
-  void addChangeToStream(C change) => _controller.add(change);
+  void addChangeToStream(Change change) => _controller.add(change);
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
-  Stream<C> get changes => _controller.stream;
+  Stream<Change> get changes => _controller.stream;
 
   ///Disposes resources and closes the stream controller.
   @mustCallSuper
@@ -83,7 +86,7 @@ abstract class ChangeWithAny extends Change {
   ChangeWithAny({required bool quiet, required this.any}) : super(quiet: quiet);
 }
 
-mixin ParentEmitter<C extends Change> on ChangeEmitter<C> {
+mixin ParentEmitter on ChangeEmitter {
   @protected
   void registerChildren();
   @protected
@@ -124,8 +127,7 @@ mixin ParentEmitter<C extends Change> on ChangeEmitter<C> {
 ///```
 ///
 ///
-abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter<C>
-    with ParentEmitter {
+abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   EmitterContainer({this.emitDetailedChanges = false});
 
   void registerChildren() {
@@ -143,27 +145,26 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
 
   // get changes => _stream ??= _getStream();
 
-  late final changes = _getStream();
+  late final Stream<ContainerChange> changes = _getStream();
 
   ///override this method in order to create and use your own subclass of [ContainerChange]
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  C containerChangeFromDependency(
+  ContainerChange containerChangeFromDependency(
       {ChangeEmitter? dependency, Change? change, bool quiet = false}) {
-    if (emitDetailedChanges && dependency != null)
-      return ContainerChange(dependency, change) as C;
-    return ContainerChange.any() as C;
+    if (emitDetailedChanges && dependency != null) return ContainerChange(dependency, change);
+    return ContainerChange.any();
   }
 
-  Stream<C> _getStream() {
+  Stream<ContainerChange> _getStream() {
     var streams = dependencies
         .map((e) => e.changes
             .where((event) => !event.quiet)
             .map((event) => containerChangeFromDependency(dependency: e, change: event)))
         .toList()
-      ..add(_controller.stream);
+      ..add(super.changes.cast<ContainerChange>());
 
-    return StreamGroup.merge<C>(streams).asBroadcastStream();
+    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
@@ -191,7 +192,7 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
   }
 }
 
-abstract class RootEmitter<C extends ContainerChange> extends EmitterContainer<C> {
+abstract class RootEmitter extends EmitterContainer {
   RootEmitter({bool emitDetailedChanges = false})
       : super(emitDetailedChanges: emitDetailedChanges) {
     registerChildren();
@@ -226,7 +227,7 @@ class ContainerChange extends ChangeWithAny {
   }
 }
 
-mixin ListenableEmitterMixin<C extends Change> on ChangeEmitter<C> implements Listenable {
+mixin ListenableEmitterMixin on ChangeEmitter implements Listenable {
   final _listeners = <VoidCallback, StreamSubscription>{};
 
   @override

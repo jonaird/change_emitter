@@ -113,13 +113,16 @@ void main() {
   test('transactions work on maps', () async {
     final map = MapEmitter({0: 1, 4: 5, 3: 4});
     var numEmits = 0;
-    map.changes.listen((event) => numEmits++);
+    map.changes.listen((event) {
+      numEmits++;
+      print('hello');
+    });
     map.startTransaction();
     map.addEntries([MapEntry(5, 3)]);
     map.remove(2);
     map[0] = 6;
     map.endTransaction();
-    await Future.delayed(Duration(milliseconds: 300));
+    await Future.delayed(Duration(milliseconds: 500));
     expect(numEmits, 1);
   });
 

@@ -1,7 +1,7 @@
 part of 'change_emitter_base.dart';
 
 ///A simple [ChangeEmitter] that stores a value, emits a [ValueChange] whenever the value changes.
-class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
+class ValueEmitter<T> extends ChangeEmitter {
   ValueEmitter(
     T value, {
     this.emitDetailedChanges = false,
@@ -35,8 +35,7 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
         emitDetailedChanges = emitter.emitDetailedChanges,
         keepHistory = emitter.keepHistory,
         super(useSyncronousStream: true) {
-    _sub = emitter.values
-        .listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
+    _sub = emitter.values.listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
   }
 
   late T _value;
@@ -52,11 +51,13 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   ///See [ValueChange].
   final bool emitDetailedChanges;
 
+  @override
+  Stream<ValueChange<T>> get changes => super.changes.cast<ValueChange<T>>();
+
   ValueEmitter<T>? _unmodifiableView;
 
   ValueEmitter<T> get unmodifiableView {
-    if (_isUnmodifiableView)
-      throw ('This value emitter is already an unmodifiable view');
+    if (_isUnmodifiableView) throw ('This value emitter is already an unmodifiable view');
     return _unmodifiableView ??= ValueEmitter<T>.unmodifiableView(this);
   }
 
@@ -91,8 +92,7 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
 
   ///Sets a new value and notifies listeners if the value is different than the old value.
   set value(T newValue) {
-    if (_isUnmodifiableView)
-      throw ('Tried to modify an unmodifiable value emitter view');
+    if (_isUnmodifiableView) throw ('Tried to modify an unmodifiable value emitter view');
     if (!_initialized) {
       _value = newValue;
       _initialized = true;
@@ -105,8 +105,7 @@ class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
   ///not trigger any parent [EmitterContainer] to emit a change.
   void quietSet(T newValue) {
     assert(!isDisposed);
-    if (_isUnmodifiableView)
-      throw ('Tried to modify an unmodifiable value emitter view');
+    if (_isUnmodifiableView) throw ('Tried to modify an unmodifiable value emitter view');
 
     if (!_initialized) {
       _value = newValue;

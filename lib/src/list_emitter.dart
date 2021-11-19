@@ -13,7 +13,7 @@ part of 'change_emitter_base.dart';
 ///list.emit() // emits change
 ///```
 ///
-class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
+class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ///Initializes with a list of elements.
   ListEmitter(List<E> list, {this.emitDetailedChanges = false}) : _list = List.from(list);
   final List<E> _list;
@@ -45,6 +45,9 @@ class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   void _conditionalEmit() {
     if (!_transactionStarted && _mutationDepth == 0) emit();
   }
+
+  @override
+  Stream<ListChange<E>> get changes => super.changes.cast<ListChange<E>>();
 
   ///Emits a change if the list has been modified since the last emit (or since it was initialized).
   ///
@@ -357,8 +360,7 @@ class ListModification<E> {
 
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
-class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
-    implements ParentEmitter<ListChange<E>> {
+class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements ParentEmitter {
   EmitterList(List<E> list) : super(list, emitDetailedChanges: true) {
     _sub = changes.listen((change) {
       for (var mod in change.modifications!)
@@ -448,8 +450,8 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
       super.changes.cast<SelectableEmitterListChange<E>>();
 
   @override
-  void addChangeToStream(ListChange<E> change) {
-    final newChange = _SELFCFromLC<E>(change);
+  void addChangeToStream(Change change) {
+    final newChange = _SELFCFromLC<E>(change as ListChange<E>);
     super.addChangeToStream(newChange);
   }
 

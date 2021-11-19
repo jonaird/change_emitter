@@ -2,7 +2,7 @@ part of 'change_emitter_base.dart';
 
 ///A [ChangeEmitter] implementation of a map. Modifying a [MapEmitter] won't automatically
 ///emit a change. To emit a change after it has been modified, call [emit].
-class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>> with MapMixin<K, V> {
+class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   MapEmitter(Map<K, V> map, {this.emitDetailedChanges = false}) : _map = Map.from(map);
   Map<K, V> _map;
 
@@ -30,16 +30,21 @@ class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>> with MapMixin<K, V
     if (!_transactionStarted && _mutationDepth == 0) emit();
   }
 
+  @override
+  Stream<MapChange<K, V>> get changes => super.changes.cast<MapChange<K, V>>();
+
   ///Emits a change if the map has been modified since the last emit (or since it was initialized).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   emit({bool quiet = false}) {
     assert(!isDisposed);
     if (_dirty && !quiet)
-      addChangeToStream(emitDetailedChanges ? MapChange(_changes) : MapChange.any());
-    else if (_dirty)
       addChangeToStream(
-          emitDetailedChanges ? MapChange(_changes, quiet: true) : MapChange.any(quiet: true));
+          emitDetailedChanges ? MapChange<K, V>(_changes) : MapChange<K, V>.any());
+    else if (_dirty)
+      addChangeToStream(emitDetailedChanges
+          ? MapChange<K, V>(_changes, quiet: true)
+          : MapChange<K, V>.any(quiet: true));
     _changes.clear();
     _dirty = false;
   }

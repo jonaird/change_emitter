@@ -68,8 +68,7 @@ class ScrollEmitter extends EmitterContainer {
 
   void jumpTo(double offset) => this.offset.value = offset;
 
-  void animateTo(double offset,
-          {required Duration duration, required Curve curve}) =>
+  void animateTo(double offset, {required Duration duration, required Curve curve}) =>
       controller.animateTo(offset, duration: duration, curve: curve);
 
   get children => {offset};
@@ -83,8 +82,7 @@ class ScrollEmitter extends EmitterContainer {
 class OffsetEmitter extends ValueEmitter<double> {
   OffsetEmitter(double initialOffset) : super(initialOffset);
 
-  Stream<OffsetChange> get changes =>
-      super.changes.map<OffsetChange>((change) => change as OffsetChange);
+  Stream<OffsetChange> get changes => super.changes.cast<OffsetChange>();
 
   void _controllerSet(double newValue) {
     if (value != newValue) {
