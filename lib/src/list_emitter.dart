@@ -115,7 +115,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     assert(!isDisposed);
     _list.add(element);
     _dirty = true;
-    if (emitDetailedChanges) _modifications.add(ListModification.insert(length, element));
+    if (emitDetailedChanges) _modifications.add(ListModification.insert(length - 1, element));
     _conditionalEmit();
   }
 
@@ -361,17 +361,19 @@ class ListModification<E> {
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements ParentEmitter {
-  EmitterList(List<E> list) : super(list, emitDetailedChanges: true) {
+  EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true})
+      : super(list, emitDetailedChanges: true) {
     _sub = changes.listen((change) {
       for (var mod in change.modifications!)
-        if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
+        if (mod.isRemove && !this.contains(mod.remove) && shouldDisposeRemovedElements)
+          mod.remove!.dispose();
     });
   }
-
+  final bool shouldDisposeRemovedElements;
   late StreamSubscription _sub;
 
   void registerChild(ChangeEmitter child) {
-    if (child._parent != this) {
+    if (child._parent != this && _parent != null) {
       child._parent = this;
       child.didRegisterParent();
       if (child is ParentEmitter) child.registerChildren();
@@ -420,9 +422,11 @@ class NavigationStack<M extends ChangeEmitter> extends EmitterList<M> {
 }
 
 class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
-  SelectableEmitterList(List<E> elements, {int? selectedIndex})
+  SelectableEmitterList(List<E> elements,
+      {int? selectedIndex, bool shouldDisposeRemovedElements = true})
       : _selectedIndexEmitter = ValueEmitter(selectedIndex, keepHistory: true),
-        super(elements);
+        _selectedindex = selectedIndex,
+        super(elements, shouldDisposeRemovedElements: shouldDisposeRemovedElements);
   int? _selectedindex;
   int? get selectedIndex => _selectedindex;
   set selectedIndex(int? index) {
@@ -433,6 +437,7 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
       _selectedIndexEmitter.value = index;
       _modifications.add(SelectableEmitterListModification(
           oldIndex, null, null, index, _SEMType.selectionChange));
+      _dirty = true;
       if (!_transactionStarted) emit();
     }
   }

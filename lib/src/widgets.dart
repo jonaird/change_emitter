@@ -22,7 +22,7 @@ class Provider<T extends ChangeEmitter> extends StatelessWidget {
   final Widget Function(BuildContext context, T state)? builder;
   @override
   Widget build(BuildContext context) {
-    return _InheritedProvider(
+    return _InheritedProvider<T>(
         value: changeEmitter,
         child: child != null ? child! : Builder(builder: (c) => builder!(c, c.depend<T>()!)));
   }
@@ -91,7 +91,7 @@ class _InheritedProvider<T extends ChangeEmitter> extends InheritedWidget {
   updateShouldNotify(_InheritedProvider<T> oldWidget) => oldWidget.value != value;
 
   @override
-  _InheritedProviderElement<T> createElement() => _InheritedProviderElement(this);
+  _InheritedProviderElement<T> createElement() => _InheritedProviderElement<T>(this);
 }
 
 class _Dependencies<T extends ChangeEmitter> {
