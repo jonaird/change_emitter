@@ -86,7 +86,7 @@ class ValueEmitter<T> extends ChangeEmitter {
 
   void _addChange(T? oldValue, T newValue, bool quiet) {
     addChangeToStream(emitDetailedChanges
-        ? ValueChange<T>(oldValue, newValue, quiet: quiet)
+        ? ValueChange<T>(oldValue, newValue)
         : ValueChange<T>.any(quiet: quiet));
   }
 
@@ -156,12 +156,11 @@ class ValueChange<T> extends ChangeWithAny {
   //Recycles ValueEmitter.any to minimize GC.
   static final _anyCache = <Type, ValueChange>{};
 
-  ValueChange(this.oldValue, this.newValue, {bool quiet = false})
-      : super(quiet: quiet, any: false);
+  ValueChange(this.oldValue, this.newValue) : super(any: false);
   ValueChange._any({bool quiet = false})
       : oldValue = null,
         newValue = null,
-        super(quiet: quiet, any: true);
+        super(any: true);
 
   ///A change notification that doesn't include detailed information about the change. Will
   ///recycle the same object to minimize GC.

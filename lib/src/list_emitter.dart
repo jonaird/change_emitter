@@ -61,7 +61,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
           : change = ListChange<E>.any();
     else if (_dirty)
       emitDetailedChanges
-          ? change = ListChange<E>(_modifications, quiet: true)
+          ? change = ListChange<E>(_modifications)
           : change = ListChange<E>.any(quiet: true);
     if (change != null) addChangeToStream(change);
     _modifications.clear();
@@ -310,12 +310,11 @@ class ListChange<E> extends ChangeWithAny {
 
   static final _cache = <Type, ListChange>{};
 
-  ListChange(this.modifications, {bool quiet = false}) : super(quiet: quiet, any: false);
-  ListChange._any({bool quiet = false})
+  ListChange(this.modifications) : super(any: false);
+  ListChange._any()
       : modifications = null,
-        super(quiet: quiet, any: true);
+        super(any: true);
   factory ListChange.any({bool quiet = false}) {
-    if (quiet) return ListChange<E>._any(quiet: true);
     return (_cache[E] ??= ListChange<E>._any()) as ListChange<E>;
   }
 
@@ -494,9 +493,8 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
 }
 
 class SelectableEmitterListChange<E extends ChangeEmitter> extends ListChange<E> {
-  SelectableEmitterListChange(List<SelectableEmitterListModification<E>> modifications,
-      {bool quiet = false})
-      : super(modifications, quiet: quiet);
+  SelectableEmitterListChange(List<SelectableEmitterListModification<E>> modifications)
+      : super(modifications);
 }
 
 class SelectableEmitterListModification<E extends ChangeEmitter> extends ListModification<E> {
@@ -520,8 +518,7 @@ bool _isRemove(_SEMType type) {
 
 SelectableEmitterListChange<E> _SELFCFromLC<E extends ChangeEmitter>(ListChange<E> change) {
   return SelectableEmitterListChange(
-      [for (final modification in change.modifications!) _SELMFromLM<E>(modification)],
-      quiet: change.quiet);
+      [for (final modification in change.modifications!) _SELMFromLM<E>(modification)]);
 }
 
 SelectableEmitterListModification<E> _SELMFromLM<E extends ChangeEmitter>(

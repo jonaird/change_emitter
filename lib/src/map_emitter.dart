@@ -42,9 +42,8 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
       addChangeToStream(
           emitDetailedChanges ? MapChange<K, V>(_changes) : MapChange<K, V>.any());
     else if (_dirty)
-      addChangeToStream(emitDetailedChanges
-          ? MapChange<K, V>(_changes, quiet: true)
-          : MapChange<K, V>.any(quiet: true));
+      addChangeToStream(
+          emitDetailedChanges ? MapChange<K, V>(_changes) : MapChange<K, V>.any(quiet: true));
     _changes.clear();
     _dirty = false;
   }
@@ -176,13 +175,13 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
 class MapChange<K, V> extends ChangeWithAny {
   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
   final List<MapModification<K, V>>? modifications;
-  MapChange(this.modifications, {bool quiet = false}) : super(quiet: quiet, any: false);
+  MapChange(this.modifications) : super(any: false);
 
   static final _cache = <Type, Map<Type, MapChange>>{};
 
   MapChange._any({bool quiet = false})
       : modifications = null,
-        super(quiet: quiet, any: true);
+        super(any: true);
 
   ///A constructor that doesn't include information about a [MapEmitter] change.
   ///Will recycle the same object per key/value type to minimize GC.

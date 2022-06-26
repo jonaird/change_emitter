@@ -68,13 +68,7 @@ abstract class ChangeEmitter {
 ///An immutable class used by [ChangeEmitter]s to trigger UI or other components
 ///of your state to update.
 @immutable
-abstract class Change {
-  ///Whether a change will trigger a parent [EmitterContainer] to notify its listeners that it has changed.
-  ///This can be useful if you want to batch changes to children of a [EmitterContainer] but have
-  ///the container only emit one change.
-  final bool quiet;
-  Change({this.quiet = false});
-}
+abstract class Change {}
 
 abstract class ChangeWithAny extends Change {
   ///Whether this change is generic or contains specific information about the change.
@@ -83,7 +77,7 @@ abstract class ChangeWithAny extends Change {
   ///and instead recycle the same [Change] object on each change
   ///to minimize garbage collection.
   final bool any;
-  ChangeWithAny({required bool quiet, required this.any}) : super(quiet: quiet);
+  ChangeWithAny({required this.any});
 }
 
 mixin ParentEmitter on ChangeEmitter {
@@ -129,9 +123,17 @@ mixin ParentEmitter on ChangeEmitter {
 ///
 abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   EmitterContainer({this.emitDetailedChanges = false});
+  var _transactionStarted = false;
+  final _changesDuringTransaction = <DependencyChange>[];
 
   void registerChildren() {
     for (var child in children) registerChild(child);
+  }
+
+  void startTransaction() => _transactionStarted = true;
+  void endTransaction() {
+    addChangeToStream(ContainerChange(List.from(_changesDuringTransaction)));
+    _transactionStarted = false;
   }
 
   ///{@macro detailed}
@@ -150,21 +152,24 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   ///override this method in order to create and use your own subclass of [ContainerChange]
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  ContainerChange containerChangeFromDependency(
-      {ChangeEmitter? dependency, Change? change, bool quiet = false}) {
-    if (emitDetailedChanges && dependency != null) return ContainerChange(dependency, change);
+  ContainerChange containerChangeFromDependency(DependencyChange? childChange) {
+    if (emitDetailedChanges && childChange != null) return ContainerChange([childChange]);
     return ContainerChange.any();
   }
 
   Stream<ContainerChange> _getStream() {
-    var streams = dependencies
-        .map((e) => e.changes
-            .where((event) => !event.quiet)
-            .map((event) => containerChangeFromDependency(dependency: e, change: event)))
-        .toList()
+    var streams = dependencies.map(_dependencyToChangeStreamMap).toList()
       ..add(super.changes.cast<ContainerChange>());
 
     return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
+  }
+
+  Stream<ContainerChange> _dependencyToChangeStreamMap(ChangeEmitter dependency) {
+    return dependency.changes.where((change) {
+      if (_transactionStarted)
+        _changesDuringTransaction.add(DependencyChange(dependency, change));
+      return !_transactionStarted;
+    }).map((change) => containerChangeFromDependency(DependencyChange(dependency, change)));
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
@@ -181,8 +186,7 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   ///Emits [new ContainerChange.any]).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
-  void emit({bool quiet = false}) =>
-      addChangeToStream(containerChangeFromDependency(quiet: quiet));
+  void emit() => addChangeToStream(containerChangeFromDependency(null));
 
   ///Disposes resources of all [children] and [this].
   @mustCallSuper
@@ -190,6 +194,12 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
     for (var child in children) child.dispose();
     super.dispose();
   }
+}
+
+class DependencyChange {
+  DependencyChange(this.child, this.change);
+  final ChangeEmitter child;
+  final Change change;
 }
 
 abstract class RootEmitter extends EmitterContainer {
@@ -202,28 +212,24 @@ abstract class RootEmitter extends EmitterContainer {
 ///A [Change] used by [EmitterContainer] to notify listeners whenever a child element (see [EmitterContainer.children]) changed
 ///or [EmitterContainer.emit] is called.
 class ContainerChange extends ChangeWithAny {
-  ///The child [ChangeEmitter] that changed.
-  final ChangeEmitter? changedElement;
+  final List<DependencyChange> childChanges;
 
-  ///The [Change] broadcast by the [changedElement] that triggerd this change.
-  final Change? change;
-
-  ContainerChange(this.changedElement, this.change, {bool quiet = false})
-      : super(quiet: quiet, any: false);
+  ContainerChange(
+    this.childChanges,
+  ) : super(any: false);
 
   static final _anyCache = ContainerChange._any();
 
-  ContainerChange._any({bool quiet = false})
-      : changedElement = null,
-        change = null,
-        super(quiet: quiet, any: true);
+  ContainerChange._any()
+      : childChanges = [],
+        super(any: true);
 
   ///A change that doesn't provide detailed information about the change
   /// (does specify [Change.quiet] value).
   ///This is the default for [EmitterContainer]. Will provide
   ///the same cached object to minimize garbage collection.
-  factory ContainerChange.any({bool quiet = false}) {
-    return quiet ? ContainerChange._any(quiet: true) : _anyCache;
+  factory ContainerChange.any() {
+    return _anyCache;
   }
 }
 
