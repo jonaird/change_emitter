@@ -38,7 +38,8 @@ class TextEditingEmitter extends EmitterContainer {
 
   void dispose() {
     _subscription.cancel();
-    controller.dispose();
+    //sometimes the controller is still attached to a view after disposing.
+    Timer(Duration(seconds: 3), () => controller.dispose());
     super.dispose();
   }
 }
@@ -74,7 +75,7 @@ class ScrollEmitter extends EmitterContainer {
   get children => {offset};
 
   dispose() {
-    controller.dispose();
+    Timer(Duration(seconds: 3), () => controller.dispose());
     super.dispose();
   }
 }
