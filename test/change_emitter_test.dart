@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:collection/collection.dart';
@@ -8,7 +10,7 @@ var eq = DeepCollectionEquality();
 
 class ExampleEmitter extends EmitterContainer {
   final elist = EmitterList([]);
-
+  final liste = ListEmitter([]);
   get children => {elist};
 }
 
@@ -139,5 +141,21 @@ void main() {
     list.selectedIndex = 1;
     await Future.delayed(Duration(milliseconds: 300));
     expect(didEmit, true);
+  });
+
+  test('using transaction on a container catches all child changes', () async {
+    final emitter = ExampleEmitter();
+    var numChanges = 0;
+    emitter.changes.listen((event) => numChanges++);
+    emitter.startTransaction();
+
+    emitter.liste.add(5);
+    emitter.liste.add(7);
+    emitter.liste.add(7);
+    emitter.liste.add(7);
+    emitter.liste.add(7);
+    emitter.endTransaction();
+    await Future.delayed(Duration(milliseconds: 500));
+    expect(numChanges, 1);
   });
 }

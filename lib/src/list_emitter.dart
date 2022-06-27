@@ -18,7 +18,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ListEmitter(List<E> list) : _list = List.from(list);
   final List<E> _list;
   final _modifications = <ListModification<E>>[];
-  bool _dirty = false;
+  bool get _dirty => _modifications.isNotEmpty;
   var _transactionStarted = false;
 
   ///Some mutating methods call other mutating methods. In these cases, only the top most
@@ -46,7 +46,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     assert(!isDisposed);
     if (_dirty) addChangeToStream(ListChange<E>(List.from(_modifications)));
     _modifications.clear();
-    _dirty = false;
   }
 
   E operator [](int index) {
@@ -60,7 +59,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     if (oldValue != value) {
       _list[index] = value;
       _modifications.add(ListModification<E>(index, oldValue, value, true, true));
-      _dirty = true;
     }
 
     _conditionalEmit();
@@ -94,7 +92,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   void add(E element) {
     assert(!isDisposed);
     _list.add(element);
-    _dirty = true;
     _modifications.add(ListModification.insert(length - 1, element));
     _conditionalEmit();
   }
@@ -120,7 +117,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   void insert(int index, E element) {
     assert(!isDisposed);
     _list.insert(index, element);
-    _dirty = true;
     _modifications.add(ListModification.insert(index, element));
     _conditionalEmit();
   }
@@ -136,7 +132,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   E removeAt(int index) {
     assert(!isDisposed);
     var removed = _list.removeAt(index);
-    _dirty = true;
     _modifications.add(ListModification.remove(index, removed));
     _conditionalEmit();
     return removed;
@@ -259,7 +254,6 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
           ListModification(length, this[pos], this[length], true, true),
           ListModification(pos, this[length], this[pos], true, true)
         ]);
-        _dirty = true;
       }
     }
     _conditionalEmit();
@@ -407,7 +401,6 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
       _selectedIndexEmitter.value = index;
       _modifications.add(SelectableEmitterListModification(
           oldIndex, null, null, index, _SEMType.selectionChange));
-      _dirty = true;
       if (!_transactionStarted) _emit();
     }
   }

@@ -7,7 +7,7 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   Map<K, V> _map;
 
   final _modifications = <MapModification<K, V>>[];
-  bool _dirty = false;
+  bool get _dirty => _modifications.isNotEmpty;
   var _transactionStarted = false;
 
   ///Some mutating methods call other mutating methods. In these cases, only the top most
@@ -36,7 +36,6 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
     if (_dirty) addChangeToStream(MapChange<K, V>(List.from(_modifications)));
 
     _modifications.clear();
-    _dirty = false;
   }
 
   ///The keys of [this].
@@ -66,12 +65,10 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
       if (value != oldVal) {
         _map[key] = value;
         _modifications.add(MapModification(key, oldVal!, value));
-        _dirty = true;
       }
     } else {
       _map[key] = value;
       _modifications.add(MapModification.insert(key, value));
-      _dirty = true;
     }
     _conditionalEmit();
   }
@@ -132,8 +129,6 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   @override
   void clear() {
     if (keys.length > 0) {
-      _dirty = true;
-
       for (var entry in _map.entries)
         _modifications.add(MapModification.remove(entry.key, entry.value));
       _map.clear();
@@ -153,7 +148,6 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
     if (keys.contains(key)) {
       removed = _map.remove(key);
       _modifications.add(MapModification.remove(key as K, removed));
-      _dirty = true;
     }
     _conditionalEmit();
     return removed;
