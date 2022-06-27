@@ -327,14 +327,14 @@ class ListModification<E> {
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements ParentEmitter {
   EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
-    _sub = changes.listen((change) {
-      for (var mod in change.modifications!)
-        if (mod.isRemove && !this.contains(mod.remove) && shouldDisposeRemovedElements)
-          mod.remove!.dispose();
-    });
+    if (shouldDisposeRemovedElements)
+      _sub = changes.listen((change) {
+        for (var mod in change.modifications!)
+          if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
+      });
   }
   final bool shouldDisposeRemovedElements;
-  late StreamSubscription _sub;
+  StreamSubscription? _sub;
 
   void registerChild(ChangeEmitter child) {
     if (child._parent != this && _parent != null) {
@@ -367,7 +367,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements Par
 
   @mustCallSuper
   void dispose() {
-    _sub.cancel();
+    _sub?.cancel();
     forEach((element) => element.dispose());
     super.dispose();
   }
