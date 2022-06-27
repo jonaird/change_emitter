@@ -15,13 +15,9 @@ class AppState extends RootEmitter {
   @override
   get children => {tabs};
 
-  void addTab() => tabs
-    ..add(TabState())
-    ..emit();
+  void addTab() => tabs.add(TabState());
 
-  void removeTab() => tabs
-    ..removeLast()
-    ..emit();
+  void removeTab() => tabs.removeLast();
 }
 
 class TabState extends EmitterContainer {
@@ -74,8 +70,7 @@ class TextViewModel extends EmitterContainer {
   String get text => parent.textInput.text.value;
 
   @override
-  get dependencies =>
-      {parent.bold, parent.italic, parent.color, parent.textInput.text};
+  get dependencies => {parent.bold, parent.italic, parent.color, parent.textInput.text};
 }
 
 void main() {
@@ -96,12 +91,10 @@ class MyApp extends StatelessWidget {
             title: const Text('OST Example'),
             bottom: TabBar(
               tabs: state.tabs.toProviderList(
-                  builder: (_, index, __) =>
-                      Tab(child: Text(index.toString()))),
+                  builder: (_, index, __) => Tab(child: Text(index.toString()))),
             ),
           ),
-          body: TabBarView(
-              children: state.tabs.toProviderList(child: const TextPage())),
+          body: TabBarView(children: state.tabs.toProviderList(child: const TextPage())),
           floatingActionButton: const FloatingActionButtons(),
         ),
       ),
@@ -145,8 +138,7 @@ class TextPage extends StatelessWidget {
         height: 700,
         child: Column(
           children: [
-            TextField(
-                controller: context.read<TabState>()!.textInput.controller),
+            TextField(controller: context.read<TabState>()!.textInput.controller),
             Row(children: [
               Text('Bold: '),
 
@@ -167,9 +159,8 @@ class TextPage extends StatelessWidget {
               Text('Italic: '),
               Reprovider(
                 selector: (TabState state) => state.italic,
-                builder: (_, ValueEmitter<bool> italic) => Switch(
-                    value: italic.value,
-                    onChanged: (value) => italic.value = value),
+                builder: (_, ValueEmitter<bool> italic) =>
+                    Switch(value: italic.value, onChanged: (value) => italic.value = value),
               )
             ]),
             Row(children: [
@@ -178,14 +169,10 @@ class TextPage extends StatelessWidget {
                   selector: (state) => state.color,
                   builder: (_, color) => DropdownButton<Color>(
                         items: [
-                          DropdownMenuItem(
-                              child: Text('red'), value: Colors.red),
-                          DropdownMenuItem(
-                              child: Text('blue'), value: Colors.blue),
-                          DropdownMenuItem(
-                              child: Text('green'), value: Colors.green),
-                          DropdownMenuItem(
-                              child: Text('purple'), value: Colors.purple)
+                          DropdownMenuItem(child: Text('red'), value: Colors.red),
+                          DropdownMenuItem(child: Text('blue'), value: Colors.blue),
+                          DropdownMenuItem(child: Text('green'), value: Colors.green),
+                          DropdownMenuItem(child: Text('purple'), value: Colors.purple)
                         ],
                         value: color.value,
                         onChanged: (value) => color.value = value!,
@@ -213,8 +200,7 @@ class RedAndBold extends StatelessWidget {
   Widget build(BuildContext context) {
     ///we can use [BuildContext.select] to select for values.
     ///The builder will rebuild when the value changes.
-    var isRedAndBold =
-        context.select<TabState, bool>((state) => state.isRedAndBold.value);
+    var isRedAndBold = context.select<TabState, bool>((state) => state.isRedAndBold.value);
     return Text("Red and bold: " + isRedAndBold.toString());
   }
 }
@@ -231,10 +217,8 @@ class DisplayText extends StatelessWidget {
             style: TextStyle(
                 color: viewModel.color,
                 fontSize: 24,
-                fontWeight:
-                    viewModel.bold ? FontWeight.bold : FontWeight.normal,
-                fontStyle:
-                    viewModel.italic ? FontStyle.italic : FontStyle.normal),
+                fontWeight: viewModel.bold ? FontWeight.bold : FontWeight.normal,
+                fontStyle: viewModel.italic ? FontStyle.italic : FontStyle.normal),
           );
         });
   }

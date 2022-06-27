@@ -1,9 +1,9 @@
 part of 'change_emitter_base.dart';
 
 ///A [ChangeEmitter] implementation of a list. Modifying the list will not
-///cause it to emit changes. When you would like the list to emit changes, call [emit].
+///cause it to emit changes. When you would like the list to emit changes, call [_emit].
 ///This lets you perform multiple changes to a list before updating your UI or other
-///parts of state. Calling [emit] will not emit changes if there have been no changes.
+///parts of state. Calling [_emit] will not emit changes if there have been no changes.
 ///
 ///```
 ///var list = ListEmitter([1,3,5]);
@@ -15,7 +15,7 @@ part of 'change_emitter_base.dart';
 ///
 class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ///Initializes with a list of elements.
-  ListEmitter(List<E> list, {this.emitDetailedChanges = false}) : _list = List.from(list);
+  ListEmitter(List<E> list) : _list = List.from(list);
   final List<E> _list;
   final _modifications = <ListModification<E>>[];
   bool _dirty = false;
@@ -26,24 +26,14 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ///of the call stack.
   var _mutationDepth = 0;
 
-  ///{@template detailed}
-  ///Whether to emit changes that include detailed information about the specific change.
-  ///Defaults to false which will emit the same cached change object to
-  ///minimize garbage collection.
-  ///{@endtemplate}
-  ///
-  ///Detailed changes will include a list of modifications.
-  ///See [ListChange.modifications].
-  final bool emitDetailedChanges;
-
   void startTransaction() => _transactionStarted = true;
-  void endTransaction({bool quiet = false}) {
-    emit(quiet: quiet);
+  void endTransaction() {
+    _emit();
     _transactionStarted = false;
   }
 
   void _conditionalEmit() {
-    if (!_transactionStarted && _mutationDepth == 0) emit();
+    if (!_transactionStarted && _mutationDepth == 0) _emit();
   }
 
   @override
@@ -52,18 +42,9 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ///Emits a change if the list has been modified since the last emit (or since it was initialized).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
-  void emit({bool quiet = false}) {
+  void _emit() {
     assert(!isDisposed);
-    ListChange<E>? change;
-    if (_dirty && !quiet)
-      emitDetailedChanges
-          ? change = ListChange<E>(List.from(_modifications))
-          : change = ListChange<E>.any();
-    else if (_dirty)
-      emitDetailedChanges
-          ? change = ListChange<E>(_modifications)
-          : change = ListChange<E>.any(quiet: true);
-    if (change != null) addChangeToStream(change);
+    if (_dirty) addChangeToStream(ListChange<E>(List.from(_modifications)));
     _modifications.clear();
     _dirty = false;
   }
@@ -78,8 +59,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     var oldValue = _list[index];
     if (oldValue != value) {
       _list[index] = value;
-      if (emitDetailedChanges)
-        _modifications.add(ListModification<E>(index, oldValue, value, true, true));
+      _modifications.add(ListModification<E>(index, oldValue, value, true, true));
       _dirty = true;
     }
 
@@ -115,7 +95,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     assert(!isDisposed);
     _list.add(element);
     _dirty = true;
-    if (emitDetailedChanges) _modifications.add(ListModification.insert(length - 1, element));
+    _modifications.add(ListModification.insert(length - 1, element));
     _conditionalEmit();
   }
 
@@ -141,7 +121,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     assert(!isDisposed);
     _list.insert(index, element);
     _dirty = true;
-    if (emitDetailedChanges) _modifications.add(ListModification.insert(index, element));
+    _modifications.add(ListModification.insert(index, element));
     _conditionalEmit();
   }
 
@@ -157,7 +137,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
     assert(!isDisposed);
     var removed = _list.removeAt(index);
     _dirty = true;
-    if (emitDetailedChanges) _modifications.add(ListModification.remove(index, removed));
+    _modifications.add(ListModification.remove(index, removed));
     _conditionalEmit();
     return removed;
   }
@@ -305,18 +285,10 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
 ///A [Change] emitted by [ListEmitter]. If [ListEmitter.emitDetailedChanges] is set to true,
 ///will provide a list of [ListModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
-class ListChange<E> extends ChangeWithAny {
+class ListChange<E> extends Change {
   final List<ListModification<E>>? modifications;
 
-  static final _cache = <Type, ListChange>{};
-
-  ListChange(this.modifications) : super(any: false);
-  ListChange._any()
-      : modifications = null,
-        super(any: true);
-  factory ListChange.any({bool quiet = false}) {
-    return (_cache[E] ??= ListChange<E>._any()) as ListChange<E>;
-  }
+  ListChange(this.modifications);
 
   String toString() {
     return "ListChange with the following modifications: ${modifications.toString()}";
@@ -360,8 +332,7 @@ class ListModification<E> {
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements ParentEmitter {
-  EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true})
-      : super(list, emitDetailedChanges: true) {
+  EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
     _sub = changes.listen((change) {
       for (var mod in change.modifications!)
         if (mod.isRemove && !this.contains(mod.remove) && shouldDisposeRemovedElements)
@@ -437,7 +408,7 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
       _modifications.add(SelectableEmitterListModification(
           oldIndex, null, null, index, _SEMType.selectionChange));
       _dirty = true;
-      if (!_transactionStarted) emit();
+      if (!_transactionStarted) _emit();
     }
   }
 

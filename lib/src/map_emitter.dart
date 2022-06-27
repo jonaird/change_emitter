@@ -1,12 +1,12 @@
 part of 'change_emitter_base.dart';
 
 ///A [ChangeEmitter] implementation of a map. Modifying a [MapEmitter] won't automatically
-///emit a change. To emit a change after it has been modified, call [emit].
+///emit a change. To emit a change after it has been modified, call [_emit].
 class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
-  MapEmitter(Map<K, V> map, {this.emitDetailedChanges = false}) : _map = Map.from(map);
+  MapEmitter(Map<K, V> map) : _map = Map.from(map);
   Map<K, V> _map;
 
-  final _changes = <MapModification<K, V>>[];
+  final _modifications = <MapModification<K, V>>[];
   bool _dirty = false;
   var _transactionStarted = false;
 
@@ -15,19 +15,14 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   ///of the call stack.
   var _mutationDepth = 0;
 
-  ///{@macro detailed}
-  ///
-  ///Detailed changes will include a list of modifications.
-  ///See [MapChange.modifications].
-  final bool emitDetailedChanges;
   void startTransaction() => _transactionStarted = true;
-  void endTransaction({bool quiet = false}) {
-    emit(quiet: quiet);
+  void endTransaction() {
+    _emit();
     _transactionStarted = false;
   }
 
   void _conditionalEmit() {
-    if (!_transactionStarted && _mutationDepth == 0) emit();
+    if (!_transactionStarted && _mutationDepth == 0) _emit();
   }
 
   @override
@@ -36,15 +31,11 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   ///Emits a change if the map has been modified since the last emit (or since it was initialized).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
-  emit({bool quiet = false}) {
+  _emit() {
     assert(!isDisposed);
-    if (_dirty && !quiet)
-      addChangeToStream(
-          emitDetailedChanges ? MapChange<K, V>(_changes) : MapChange<K, V>.any());
-    else if (_dirty)
-      addChangeToStream(
-          emitDetailedChanges ? MapChange<K, V>(_changes) : MapChange<K, V>.any(quiet: true));
-    _changes.clear();
+    if (_dirty) addChangeToStream(MapChange<K, V>(List.from(_modifications)));
+
+    _modifications.clear();
     _dirty = false;
   }
 
@@ -74,12 +65,12 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
       var oldVal = _map[key];
       if (value != oldVal) {
         _map[key] = value;
-        if (emitDetailedChanges) _changes.add(MapModification(key, oldVal!, value));
+        _modifications.add(MapModification(key, oldVal!, value));
         _dirty = true;
       }
     } else {
       _map[key] = value;
-      if (emitDetailedChanges) _changes.add(MapModification.insert(key, value));
+      _modifications.add(MapModification.insert(key, value));
       _dirty = true;
     }
     _conditionalEmit();
@@ -142,9 +133,9 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   void clear() {
     if (keys.length > 0) {
       _dirty = true;
-      if (emitDetailedChanges)
-        for (var entry in _map.entries)
-          _changes.add(MapModification.remove(entry.key, entry.value));
+
+      for (var entry in _map.entries)
+        _modifications.add(MapModification.remove(entry.key, entry.value));
       _map.clear();
     }
     _conditionalEmit();
@@ -161,7 +152,7 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
     V? removed;
     if (keys.contains(key)) {
       removed = _map.remove(key);
-      if (emitDetailedChanges) _changes.add(MapModification.remove(key as K, removed));
+      _modifications.add(MapModification.remove(key as K, removed));
       _dirty = true;
     }
     _conditionalEmit();
@@ -172,27 +163,10 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
 ///A [Change] emiited by [MapEmitter]. If [MapEmitter.emitDetailedChanges] is set to true,
 ///will provide a list of [MapModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
-class MapChange<K, V> extends ChangeWithAny {
+class MapChange<K, V> extends Change {
   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
   final List<MapModification<K, V>>? modifications;
-  MapChange(this.modifications) : super(any: false);
-
-  static final _cache = <Type, Map<Type, MapChange>>{};
-
-  MapChange._any({bool quiet = false})
-      : modifications = null,
-        super(any: true);
-
-  ///A constructor that doesn't include information about a [MapEmitter] change.
-  ///Will recycle the same object per key/value type to minimize GC.
-  factory MapChange.any({bool quiet = false}) {
-    if (quiet) return MapChange<K, V>._any(quiet: true);
-
-    _cache[K] ??= <Type, MapChange>{};
-    _cache[K]![V] ??= MapChange<K, V>._any();
-
-    return _cache[K]![V] as MapChange<K, V>;
-  }
+  MapChange(this.modifications);
 }
 
 ///An individual modification, either an insert, remove or both (see [isInsert], [isRemove], [isReplace]).

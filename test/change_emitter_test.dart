@@ -77,7 +77,6 @@ void main() {
     var emitter = ValueEmitter(1);
     var list = EmitterList([emitter]);
     list.removeLast();
-    list.emit();
     await Future.delayed(Duration(milliseconds: 200));
     expect(emitter.isDisposed, true);
   });
@@ -91,9 +90,7 @@ void main() {
     var example = ExampleEmitter();
     var secondExample = ExampleEmitter();
     example.registerChildren();
-    example.elist
-      ..add(secondExample)
-      ..emit();
+    example.elist.add(secondExample);
     var ancestor = secondExample.findAncestorOfExactType<ExampleEmitter>();
     expect(example, ancestor);
   });

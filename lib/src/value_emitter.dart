@@ -4,7 +4,6 @@ part of 'change_emitter_base.dart';
 class ValueEmitter<T> extends ChangeEmitter {
   ValueEmitter(
     T value, {
-    this.emitDetailedChanges = false,
     this.keepHistory = false,
   })  : _value = value,
         _isUnmodifiableView = false;
@@ -13,7 +12,6 @@ class ValueEmitter<T> extends ChangeEmitter {
   ValueEmitter.reactive({
     required List<ChangeEmitter> reactTo,
     required T Function() withValue,
-    this.emitDetailedChanges = false,
     this.keepHistory = false,
   })  : _isUnmodifiableView = true,
         super(useSyncronousStream: true) {
@@ -23,7 +21,6 @@ class ValueEmitter<T> extends ChangeEmitter {
   }
 
   ValueEmitter.late({
-    this.emitDetailedChanges = false,
     this.keepHistory = false,
   })  : assert(null is! T),
         _isUnmodifiableView = false,
@@ -32,7 +29,6 @@ class ValueEmitter<T> extends ChangeEmitter {
   ValueEmitter.unmodifiableView(ValueEmitter<T> emitter)
       : _isUnmodifiableView = true,
         _value = emitter.value,
-        emitDetailedChanges = emitter.emitDetailedChanges,
         keepHistory = emitter.keepHistory,
         super(useSyncronousStream: true) {
     _sub = emitter.values.listen((T newVal) => _setValueWithoutUnmodifiableCheck(newVal));
@@ -44,12 +40,6 @@ class ValueEmitter<T> extends ChangeEmitter {
   bool _initialized = true;
   final _history = <T>[];
   final bool keepHistory;
-
-  ///{@macro detailed}
-  ///
-  ///Detailed changes will contain the new value and the old value that was replaced.
-  ///See [ValueChange].
-  final bool emitDetailedChanges;
 
   @override
   Stream<ValueChange<T>> get changes => super.changes.cast<ValueChange<T>>();
@@ -80,14 +70,12 @@ class ValueEmitter<T> extends ChangeEmitter {
       var oldValue = _value;
       _value = newValue;
       _history.add(oldValue);
-      _addChange(oldValue, newValue, false);
+      _addChange(oldValue, newValue);
     }
   }
 
-  void _addChange(T? oldValue, T newValue, bool quiet) {
-    addChangeToStream(emitDetailedChanges
-        ? ValueChange<T>(oldValue, newValue)
-        : ValueChange<T>.any(quiet: quiet));
+  void _addChange(T? oldValue, T newValue) {
+    addChangeToStream(ValueChange<T>(oldValue, newValue));
   }
 
   ///Sets a new value and notifies listeners if the value is different than the old value.
@@ -96,27 +84,9 @@ class ValueEmitter<T> extends ChangeEmitter {
     if (!_initialized) {
       _value = newValue;
       _initialized = true;
-      _addChange(null, newValue, false);
+      _addChange(null, newValue);
     } else
       _setValueWithoutUnmodifiableCheck(newValue);
-  }
-
-  ///Sets a new value and emits a change if the value is different than the old value but will
-  ///not trigger any parent [EmitterContainer] to emit a change.
-  void quietSet(T newValue) {
-    assert(!isDisposed);
-    if (_isUnmodifiableView) throw ('Tried to modify an unmodifiable value emitter view');
-
-    if (!_initialized) {
-      _value = newValue;
-      _initialized = true;
-      _addChange(null, newValue, true);
-    } else if (_value != newValue) {
-      var oldValue = _value;
-      _value = newValue;
-      _history.add(oldValue);
-      _addChange(oldValue, newValue, true);
-    }
   }
 
   ///The current value held.
@@ -146,27 +116,12 @@ extension Toggleable on ValueEmitter<bool> {
 ///A [Change] emitted by [ValueEmitter]. If [ValueEmitter.emitDetailedChanges] is set to true,
 ///will provide both the new value and the old value being replaced. Otherwise, will recycle the same cached [new ValueChange.any]
 ///object to minimize garbage collection.
-class ValueChange<T> extends ChangeWithAny {
+class ValueChange<T> extends Change {
   ///The value being replaced.
   final T? oldValue;
 
   ///The new value.
   final T? newValue;
 
-  //Recycles ValueEmitter.any to minimize GC.
-  static final _anyCache = <Type, ValueChange>{};
-
-  ValueChange(this.oldValue, this.newValue) : super(any: false);
-  ValueChange._any({bool quiet = false})
-      : oldValue = null,
-        newValue = null,
-        super(any: true);
-
-  ///A change notification that doesn't include detailed information about the change. Will
-  ///recycle the same object to minimize GC.
-  factory ValueChange.any({bool quiet = false}) {
-    if (quiet) return ValueChange<T>._any(quiet: true);
-
-    return (_anyCache[T] ??= ValueChange<T>._any()) as ValueChange<T>;
-  }
+  ValueChange(this.oldValue, this.newValue);
 }

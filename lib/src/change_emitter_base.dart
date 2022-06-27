@@ -70,15 +70,15 @@ abstract class ChangeEmitter {
 @immutable
 abstract class Change {}
 
-abstract class ChangeWithAny extends Change {
-  ///Whether this change is generic or contains specific information about the change.
-  ///By default [ChangeEmitter]s contained in this library don't contain
-  ///specific information about a change (except for the [Change.quiet] value)
-  ///and instead recycle the same [Change] object on each change
-  ///to minimize garbage collection.
-  final bool any;
-  ChangeWithAny({required this.any});
-}
+// abstract class ChangeWithAny extends Change {
+//   ///Whether this change is generic or contains specific information about the change.
+//   ///By default [ChangeEmitter]s contained in this library don't contain
+//   ///specific information about a change (except for the [Change.quiet] value)
+//   ///and instead recycle the same [Change] object on each change
+//   ///to minimize garbage collection.
+//   final bool any;
+//   ChangeWithAny({required this.any});
+// }
 
 mixin ParentEmitter on ChangeEmitter {
   @protected
@@ -122,7 +122,6 @@ mixin ParentEmitter on ChangeEmitter {
 ///
 ///
 abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
-  EmitterContainer({this.emitDetailedChanges = false});
   var _transactionStarted = false;
   final _changesDuringTransaction = <DependencyChange>[];
 
@@ -136,13 +135,6 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
     _transactionStarted = false;
   }
 
-  ///{@macro detailed}
-  ///
-  ///Detailed changes will include the child's [Change] object
-  ///that triggered the change as well as a reference to the child.
-  ///See [EmitterChange].
-  final bool emitDetailedChanges;
-
   // var _stream;
 
   // get changes => _stream ??= _getStream();
@@ -153,8 +145,7 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
   ContainerChange containerChangeFromDependency(DependencyChange? childChange) {
-    if (emitDetailedChanges && childChange != null) return ContainerChange([childChange]);
-    return ContainerChange.any();
+    return ContainerChange([if (childChange != null) childChange]);
   }
 
   Stream<ContainerChange> _getStream() {
@@ -203,34 +194,19 @@ class DependencyChange {
 }
 
 abstract class RootEmitter extends EmitterContainer {
-  RootEmitter({bool emitDetailedChanges = false})
-      : super(emitDetailedChanges: emitDetailedChanges) {
+  RootEmitter({bool emitDetailedChanges = false}) {
     registerChildren();
   }
 }
 
 ///A [Change] used by [EmitterContainer] to notify listeners whenever a child element (see [EmitterContainer.children]) changed
 ///or [EmitterContainer.emit] is called.
-class ContainerChange extends ChangeWithAny {
+class ContainerChange extends Change {
   final List<DependencyChange> childChanges;
 
   ContainerChange(
     this.childChanges,
-  ) : super(any: false);
-
-  static final _anyCache = ContainerChange._any();
-
-  ContainerChange._any()
-      : childChanges = [],
-        super(any: true);
-
-  ///A change that doesn't provide detailed information about the change
-  /// (does specify [Change.quiet] value).
-  ///This is the default for [EmitterContainer]. Will provide
-  ///the same cached object to minimize garbage collection.
-  factory ContainerChange.any() {
-    return _anyCache;
-  }
+  );
 }
 
 mixin ListenableEmitterMixin on ChangeEmitter implements Listenable {
