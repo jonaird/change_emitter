@@ -4,12 +4,10 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:async/async.dart';
 import 'dart:math';
-//import 'package:provider/provider.dart';
 
 part 'map_emitter.dart';
 part 'list_emitter.dart';
 part 'value_emitter.dart';
-//part 'widgets_old.dart';
 part 'controller_emitters.dart';
 part 'widgets.dart';
 
