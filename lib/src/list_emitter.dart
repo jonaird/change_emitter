@@ -280,7 +280,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
 ///will provide a list of [ListModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
 class ListChange<E> extends Change {
-  final List<ListModification<E>>? modifications;
+  final List<ListModification<E>> modifications;
 
   ListChange(this.modifications);
 
@@ -329,7 +329,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements Par
   EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
     if (shouldDisposeRemovedElements)
       _sub = changes.listen((change) {
-        for (var mod in change.modifications!)
+        for (var mod in change.modifications)
           if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
       });
   }
@@ -385,50 +385,40 @@ class NavigationStack<M extends ChangeEmitter> extends EmitterList<M> {
   void pop() => removeLast();
 }
 
-class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
-  SelectableEmitterList(List<E> elements,
-      {int? selectedIndex, bool shouldDisposeRemovedElements = true})
-      : _selectedIndexEmitter = ValueEmitter(selectedIndex, keepHistory: true),
-        _selectedindex = selectedIndex,
-        super(elements, shouldDisposeRemovedElements: shouldDisposeRemovedElements);
-  int? _selectedindex;
-  int? get selectedIndex => _selectedindex;
-  set selectedIndex(int? index) {
-    if (index != null) RangeError.checkValueInInterval(index, 0, length - 1);
-    if (selectedIndex != index) {
-      final oldIndex = _selectedindex;
-      _selectedindex = index;
-      _selectedIndexEmitter.value = index;
-      _modifications.add(SelectableEmitterListModification(
-          oldIndex, null, null, index, _SEMType.selectionChange));
-      if (!_transactionStarted) _emit();
-    }
-  }
+class SelectableEmitterList<E extends ChangeEmitter> extends EmitterContainer
+    with ListMixin<E> {
+  SelectableEmitterList(
+    List<E> elements, {
+    int? selectedIndex,
+    bool shouldDisposeRemovedElements = true,
+  })  : selectedIndex = ValueEmitter(selectedIndex, keepHistory: true),
+        elements =
+            EmitterList(elements, shouldDisposeRemovedElements: shouldDisposeRemovedElements);
 
-  final ValueEmitter<int?> _selectedIndexEmitter;
-  late final selectedIndexEmitter = _selectedIndexEmitter.unmodifiableView;
+  final EmitterList<E> elements;
+  final ValueEmitter<int?> selectedIndex;
+
   late final selection = ValueEmitter<E?>.reactive(
-      reactTo: [this, selectedIndexEmitter],
-      withValue: () => isNotEmpty && selectedIndexEmitter.isNotNull
-          ? this[selectedIndexEmitter.value!]
-          : null);
+    reactTo: [elements, selectedIndex],
+    withValue: _getSelection,
+  );
 
-  @override
-  Stream<SelectableEmitterListChange<E>> get changes =>
-      super.changes.cast<SelectableEmitterListChange<E>>();
-
-  @override
-  void addChangeToStream(Change change) {
-    final newChange = _SELFCFromLC<E>(change as ListChange<E>);
-    super.addChangeToStream(newChange);
+  E? _getSelection() {
+    if (!selectedIndexInRange) return null;
+    return elements[selectedIndex.value!];
   }
 
-  void selectLast() => selectedIndex = length - 1;
+  bool get selectedIndexInRange {
+    final index = selectedIndex.value;
+    return index != null && index > 0 && index < elements.length;
+  }
+
+  void selectLast() => selectedIndex.value = elements.length - 1;
 
   void addAndSelect(E element) {
     final transactionStarted = _transactionStarted;
     if (!transactionStarted) startTransaction();
-    add(element);
+    elements.add(element);
     selectLast();
     if (!transactionStarted) endTransaction();
   }
@@ -438,66 +428,119 @@ class SelectableEmitterList<E extends ChangeEmitter> extends EmitterList<E> {
   bool removeAndSelectPrevious(E element) {
     final tx = _transactionStarted;
     if (!tx) startTransaction();
-    var wasInList = remove(element);
-    if (wasInList) {
-      if (selectedIndex != null && (selectedIndex! > 0))
-        selectedIndex = selectedIndexEmitter.value! - 1;
-      else if (length == 0) selectedIndexEmitter.value = null;
-      if (!tx) endTransaction();
+    var elementWasRemoved = elements.remove(element);
+    if (elementWasRemoved && selectedIndex.isNotNull && selectedIndex.value! > 0) {
+      selectedIndex.value = selectedIndex.value! - 1;
     }
-    return wasInList;
+    if (!tx) endTransaction();
+
+    return elementWasRemoved;
   }
+
+  E operator [](int index) => elements[index];
+
+  operator []=(int index, E value) {
+    elements[index] = value;
+  }
+
+  ///The number of objects in this list.
+  ///
+  ///The valid indices for a list are 0 through length - 1
+  int get length => elements.length;
+
+  set length(int newLength) => elements.length = newLength;
+
+  ///Adds [value] to the end of this list, extending the length by one.
+  ///
+  ///Throws an [UnsupportedError] if the list is fixed-length.
+  @override
+  void add(E element) => elements.add(element);
+
+  ///Appends all objects of [iterable] to the end of this list.
+  ///
+  ///Extends the length of the list by the number of objects in [iterable].
+  @override
+  void addAll(Iterable<E> iterable) => elements.addAll(iterable);
+
+  ///Inserts the object at position [index] in this list.
+  ///
+  ///This increases the length of the list by one and shifts all objects at or after the index towards the end of the list.
+  ///
+  ///The [index] value must be non-negative and no greater than [length].
+  @override
+  void insert(int index, E element) => elements.insert(index, element);
+
+  ///Removes the object at position [index] from this list.
+  ///
+  ///This method reduces the length of this by one and moves all later objects down by one position.
+  ///
+  ///Returns the removed object.
+  ///
+  ///The [index] must be in the range 0 ≤ index < length.
+  @override
+  E removeAt(int index) => elements.removeAt(index);
+
+  ///Removes the first occurrence of [value] from this list.
+  ///
+  ///Returns true if [value] was in the list, false otherwise.
+  ///
+  ///The method has no effect if [value] was not in the list.
+  @override
+  bool remove(element) => elements.remove(element);
+
+  ///Removes all objects from this list that satisfy [test].
+  ///
+  ///An object [o] satisfies [test] if [test(o)] is true.
+  @override
+  void removeWhere(bool Function(E element) test) => elements.removeWhere((element) => false);
+
+  ///Pops and returns the last object in this list.
+  ///
+  ///The list must not be empty.
+  @override
+  E removeLast() => elements.removeLast();
+
+  ///Removes all objects from this list that fail to satisfy [test].
+  ///
+  ///An object [o] satisfies [test] if [test(o)] is true.
+  @override
+  void retainWhere(bool Function(E element) test) => elements.retainWhere((element) => false);
+
+  /// Removes the objects in the range [start] inclusive to [end] exclusive.
+  ///
+  /// The provided range, given by [start] and [end], must be valid. A range from [start] to [end] is valid if 0 <= start <= end <= len, where len is this list's length. The range starts at start and has length end - start. An empty range (with end == start) is valid.
+  @override
+  void removeRange(int start, int end) => elements.removeRange(start, end);
 
   @override
-  void dispose() {
-    _selectedIndexEmitter.dispose();
-    selection.dispose();
-    super.dispose();
-  }
-}
+  void fillRange(int start, int end, [E? fill]) => elements.fillRange(start, end);
 
-class SelectableEmitterListChange<E extends ChangeEmitter> extends ListChange<E> {
-  SelectableEmitterListChange(List<SelectableEmitterListModification<E>> modifications)
-      : super(modifications);
-}
+  @override
+  void setRange(int start, int end, Iterable<E> iterable, [int skipCount = 0]) =>
+      elements.setRange(start, end, iterable);
 
-class SelectableEmitterListModification<E extends ChangeEmitter> extends ListModification<E> {
-  SelectableEmitterListModification(
-      int? index, E? previous, E? next, this.newSelection, _SEMType type)
-      : isSelectionChange = type == _SEMType.selectionChange,
-        super(index, previous, next, _isInsert(type), _isRemove(type));
-  final int? newSelection;
-  final bool isSelectionChange;
-}
+  ///Removes the objects in the range [start] inclusive to [end] exclusive and inserts the contents of [replacement] in its place.
+  ///
+  ///```
+  ///List<int> list = [1, 2, 3, 4, 5];
+  ///list.replaceRange(1, 4, [6, 7]);
+  ///list.join(', '); // '1, 6, 7, 5'
+  ///```
+  ///The provided range, given by [start] and [end], must be valid. A range from [start] to [end] is valid if 0 <= start <= end <= len, where len is this list's length. The range starts at start and has length end - start. An empty range (with end == start) is valid.
+  @override
+  void replaceRange(int start, int end, Iterable<E> newContents) =>
+      elements.replaceRange(start, end, newContents);
 
-enum _SEMType { insert, remove, replace, selectionChange }
+  @override
+  void shuffle([Random? random]) => elements.shuffle();
 
-bool _isInsert(_SEMType type) {
-  return type == _SEMType.insert || type == _SEMType.replace;
-}
+  @override
+  void insertAll(int index, Iterable<E> iterable) => elements.insertAll(index, iterable);
 
-bool _isRemove(_SEMType type) {
-  return type == _SEMType.remove || type == _SEMType.replace;
-}
+  @override
+  void setAll(int index, Iterable<E> iterable) => elements.setAll(index, iterable);
 
-SelectableEmitterListChange<E> _SELFCFromLC<E extends ChangeEmitter>(ListChange<E> change) {
-  return SelectableEmitterListChange(
-      [for (final modification in change.modifications!) _SELMFromLM<E>(modification)]);
-}
+  get children => {selectedIndex, elements, selection};
 
-SelectableEmitterListModification<E> _SELMFromLM<E extends ChangeEmitter>(
-    ListModification<E> modification) {
-  if (modification is SelectableEmitterListModification)
-    return modification as SelectableEmitterListModification<E>;
-  return SelectableEmitterListModification(modification.index, modification.remove,
-      modification.insert, null, _typeFromLM(modification.isRemove, modification.isInsert));
-}
-
-_SEMType _typeFromLM(bool isRemove, bool isInsert) {
-  if (isInsert && isRemove)
-    return _SEMType.replace;
-  else if (isInsert)
-    return _SEMType.insert;
-  else
-    return _SEMType.remove;
+  get dependencies => {elements, selectedIndex};
 }
