@@ -114,7 +114,6 @@ void main() {
     var numEmits = 0;
     map.changes.listen((event) {
       numEmits++;
-      print('hello');
     });
     map.startTransaction();
     map.addEntries([MapEntry(5, 3)]);
