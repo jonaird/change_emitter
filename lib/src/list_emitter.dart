@@ -293,7 +293,7 @@ class ListChange<E> extends Change {
 class ListModification<E> {
   ///The index at which the modification ocurred.
   ///must be nullable so that subtypes can create changes that don't involve an index
-  final int? index;
+  final int index;
 
   ///The value inserted at the [index] if any.
   final E? insert;
