@@ -133,15 +133,6 @@ void main() {
     expect(numEmits, 1);
   });
 
-  test('changing selected index causes SelectableEmitterList to emit', () async {
-    final list = SelectableEmitterList([ValueEmitter(0), ValueEmitter(2)], selectedIndex: 0);
-    var didEmit = false;
-    list.changes.listen((_) => didEmit = true);
-    list.selectedIndex.value = 1;
-    await Future.delayed(Duration(milliseconds: 300));
-    expect(didEmit, true);
-  });
-
   test('using transaction on a container catches all child changes', () async {
     final emitter = ExampleEmitter();
     var numChanges = 0;

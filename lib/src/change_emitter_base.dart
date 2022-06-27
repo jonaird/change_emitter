@@ -123,6 +123,8 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
     _transactionStarted = false;
   }
 
+  bool get ongoingTransaction => _transactionStarted;
+
   // var _stream;
 
   // get changes => _stream ??= _getStream();
