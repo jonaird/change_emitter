@@ -70,16 +70,6 @@ abstract class ChangeEmitter {
 @immutable
 abstract class Change {}
 
-// abstract class ChangeWithAny extends Change {
-//   ///Whether this change is generic or contains specific information about the change.
-//   ///By default [ChangeEmitter]s contained in this library don't contain
-//   ///specific information about a change (except for the [Change.quiet] value)
-//   ///and instead recycle the same [Change] object on each change
-//   ///to minimize garbage collection.
-//   final bool any;
-//   ChangeWithAny({required this.any});
-// }
-
 mixin ParentEmitter on ChangeEmitter {
   @protected
   void registerChildren();
