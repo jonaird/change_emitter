@@ -110,7 +110,7 @@ class _InheritedProviderElement<T extends ChangeEmitter> extends InheritedElemen
 
   var _notifyDependents = false;
 
-  StreamSubscription<Change>? _subscription;
+  StreamSubscription? _subscription;
 
   _InheritedProvider<T> get widget => super.widget as _InheritedProvider<T>;
 

@@ -50,7 +50,7 @@ abstract class ChangeEmitter {
 
   ///Used by subclasses to broadcast [Change]s.
   @protected
-  void addChangeToStream(Object? change) => _controller.add(change);
+  void addChangeToStream(dynamic change) => _controller.add(change);
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
   Stream get changes => _controller.stream;
@@ -180,7 +180,7 @@ class DependencyChange {
 }
 
 abstract class RootEmitter extends EmitterContainer {
-  RootEmitter({bool emitDetailedChanges = false}) {
+  RootEmitter() {
     registerChildren();
   }
 }

@@ -26,15 +26,15 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
   }
 
   @override
-  Stream<MapChange<K, V>> get changes => super.changes.cast<MapChange<K, V>>();
+  Stream<List<MapModification<K, V>>> get changes =>
+      super.changes.cast<List<MapModification<K, V>>>();
 
   ///Emits a change if the map has been modified since the last emit (or since it was initialized).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   _emit() {
     assert(!isDisposed);
-    if (_dirty) addChangeToStream(MapChange<K, V>(List.from(_modifications)));
-
+    if (_dirty) addChangeToStream(List<MapModification<K, V>>.from(_modifications));
     _modifications.clear();
   }
 
@@ -157,11 +157,11 @@ class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
 ///A [Change] emiited by [MapEmitter]. If [MapEmitter.emitDetailedChanges] is set to true,
 ///will provide a list of [MapModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
-class MapChange<K, V> extends Change {
-  ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
-  final List<MapModification<K, V>>? modifications;
-  MapChange(this.modifications);
-}
+// class MapChange<K, V>  {
+//   ///A list of modifications since a the last time [MapEmitter.notifyChange] was called or the map was initialized.
+//   final List<MapModification<K, V>> modifications;
+//   MapChange(this.modifications);
+// }
 
 ///An individual modification, either an insert, remove or both (see [isInsert], [isRemove], [isReplace]).
 class MapModification<K, V> {

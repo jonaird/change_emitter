@@ -116,7 +116,7 @@ extension Toggleable on ValueEmitter<bool> {
 ///A [Change] emitted by [ValueEmitter]. If [ValueEmitter.emitDetailedChanges] is set to true,
 ///will provide both the new value and the old value being replaced. Otherwise, will recycle the same cached [new ValueChange.any]
 ///object to minimize garbage collection.
-class ValueChange<T> extends Change {
+class ValueChange<T> {
   ///The value being replaced.
   final T? oldValue;
 

@@ -44,7 +44,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void _emit() {
     assert(!isDisposed);
-    if (_dirty) addChangeToStream(ListChange<E>(List.from(_modifications)));
+    if (_dirty) addChangeToStream(List<ListModification<E>>.from(_modifications));
     _modifications.clear();
   }
 
