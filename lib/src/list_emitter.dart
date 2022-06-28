@@ -279,7 +279,7 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
 ///A [Change] emitted by [ListEmitter]. If [ListEmitter.emitDetailedChanges] is set to true,
 ///will provide a list of [ListModification]s. Otherwise, will recycle the same cached [new ListChange.any]
 ///object to minimize garbage collection.
-class ListChange<E> extends Change {
+class ListChange<E> {
   final List<ListModification<E>> modifications;
 
   ListChange(this.modifications);

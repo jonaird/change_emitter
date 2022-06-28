@@ -25,9 +25,9 @@ part 'widgets.dart';
 ///to the appropriate type.
 abstract class ChangeEmitter {
   ChangeEmitter({bool useSyncronousStream = false})
-      : _controller = StreamController<Change>.broadcast(sync: useSyncronousStream);
+      : _controller = StreamController.broadcast(sync: useSyncronousStream);
 
-  final StreamController<Change> _controller;
+  final StreamController _controller;
 
   ChangeEmitter? _parent;
 
@@ -50,10 +50,10 @@ abstract class ChangeEmitter {
 
   ///Used by subclasses to broadcast [Change]s.
   @protected
-  void addChangeToStream(Change change) => _controller.add(change);
+  void addChangeToStream(Object? change) => _controller.add(change);
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
-  Stream<Change> get changes => _controller.stream;
+  Stream get changes => _controller.stream;
 
   ///Disposes resources and closes the stream controller.
   @mustCallSuper
@@ -62,11 +62,6 @@ abstract class ChangeEmitter {
   ///Whether [this] has been disposed.
   bool get isDisposed => _controller.isClosed;
 }
-
-///An immutable class used by [ChangeEmitter]s to trigger UI or other components
-///of your state to update.
-@immutable
-abstract class Change {}
 
 mixin ParentEmitter on ChangeEmitter {
   @protected
@@ -129,28 +124,29 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
 
   // get changes => _stream ??= _getStream();
 
-  late final Stream<ContainerChange> changes = _getStream();
+  late final Stream<List<DependencyChange>> changes = _getStream();
 
   ///override this method in order to create and use your own subclass of [ContainerChange]
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  ContainerChange containerChangeFromDependency(DependencyChange? childChange) {
-    return ContainerChange([if (childChange != null) childChange]);
+  List<DependencyChange> containerChangeFromDependency(ChangeEmitter? dependency,
+      [dynamic change]) {
+    return [if (dependency != null) DependencyChange(dependency, change)];
   }
 
-  Stream<ContainerChange> _getStream() {
+  Stream<List<DependencyChange>> _getStream() {
     var streams = dependencies.map(_dependencyToChangeStreamMap).toList()
-      ..add(super.changes.cast<ContainerChange>());
+      ..add(super.changes.cast<List<DependencyChange>>());
 
-    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
+    return StreamGroup.merge<List<DependencyChange>>(streams).asBroadcastStream();
   }
 
-  Stream<ContainerChange> _dependencyToChangeStreamMap(ChangeEmitter dependency) {
+  Stream<List<DependencyChange>> _dependencyToChangeStreamMap(ChangeEmitter dependency) {
     return dependency.changes.where((change) {
       if (_transactionStarted)
         _changesDuringTransaction.add(DependencyChange(dependency, change));
       return !_transactionStarted;
-    }).map((change) => containerChangeFromDependency(DependencyChange(dependency, change)));
+    }).map((change) => containerChangeFromDependency(dependency, change));
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
@@ -180,7 +176,7 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
 class DependencyChange {
   DependencyChange(this.child, this.change);
   final ChangeEmitter child;
-  final Change change;
+  final Object? change;
 }
 
 abstract class RootEmitter extends EmitterContainer {
@@ -191,7 +187,7 @@ abstract class RootEmitter extends EmitterContainer {
 
 ///A [Change] used by [EmitterContainer] to notify listeners whenever a child element (see [EmitterContainer.children]) changed
 ///or [EmitterContainer.emit] is called.
-class ContainerChange extends Change {
+class ContainerChange {
   final List<DependencyChange> childChanges;
 
   ContainerChange(
