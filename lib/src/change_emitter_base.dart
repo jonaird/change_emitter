@@ -106,7 +106,7 @@ mixin ParentEmitter on ChangeEmitter {
 ///
 abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   var _transactionStarted = false;
-  final _changesDuringTransaction = <DependencyChange>[];
+  final _changesDuringTransaction = <DependencyRecord>[];
 
   void registerChildren() {
     for (var child in children) registerChild(child);
@@ -114,39 +114,42 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
 
   void startTransaction() => _transactionStarted = true;
   void endTransaction() {
-    addChangeToStream(ContainerChange(List.from(_changesDuringTransaction)));
+    addChangeToStream(containerChangeFromDependencyRecords(_changesDuringTransaction));
     _transactionStarted = false;
   }
 
   bool get ongoingTransaction => _transactionStarted;
 
-  // var _stream;
-
-  // get changes => _stream ??= _getStream();
-
-  late final Stream<List<DependencyChange>> changes = _getStream();
+  late final Stream<ContainerChange> changes = _getStream();
 
   ///override this method in order to create and use your own subclass of [ContainerChange]
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  List<DependencyChange> containerChangeFromDependency(ChangeEmitter? dependency,
-      [dynamic change]) {
-    return [if (dependency != null) DependencyChange(dependency, change)];
+  ContainerChange containerChangeFromDependencyRecords(List<DependencyRecord> records) {
+    return ContainerChange(List<DependencyRecord>.from(dependencies));
   }
 
-  Stream<List<DependencyChange>> _getStream() {
-    var streams = dependencies.map(_dependencyToChangeStreamMap).toList()
-      ..add(super.changes.cast<List<DependencyChange>>());
-
-    return StreamGroup.merge<List<DependencyChange>>(streams).asBroadcastStream();
+  @protected
+  DependencyRecord dependencyRecordFromChange(ChangeEmitter dependency, dynamic change) {
+    return DependencyRecord(dependency, change);
   }
 
-  Stream<List<DependencyChange>> _dependencyToChangeStreamMap(ChangeEmitter dependency) {
+  Stream<ContainerChange> _getStream() {
+    final streams = [
+      ...dependencies.map(_dependencyToContainerChangeStream),
+      super.changes.cast<ContainerChange>(),
+    ];
+
+    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
+  }
+
+  Stream<ContainerChange> _dependencyToContainerChangeStream(ChangeEmitter dependency) {
     return dependency.changes.where((change) {
       if (_transactionStarted)
-        _changesDuringTransaction.add(DependencyChange(dependency, change));
+        _changesDuringTransaction.add(dependencyRecordFromChange(dependency, change));
       return !_transactionStarted;
-    }).map((change) => containerChangeFromDependency(dependency, change));
+    }).map((change) => containerChangeFromDependencyRecords(
+        [dependencyRecordFromChange(dependency, change)]));
   }
 
   ///Override to provide a list of all the [ChangeEmitter]s defined in your subclass. This
@@ -163,7 +166,7 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   ///Emits [new ContainerChange.any]).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
-  void emit() => addChangeToStream(containerChangeFromDependency(null));
+  void emit() => addChangeToStream(containerChangeFromDependencyRecords([]));
 
   ///Disposes resources of all [children] and [this].
   @mustCallSuper
@@ -173,9 +176,14 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   }
 }
 
-class DependencyChange {
-  DependencyChange(this.child, this.change);
-  final ChangeEmitter child;
+class ContainerChange {
+  ContainerChange(this.dependencyChanges);
+  final List<DependencyRecord> dependencyChanges;
+}
+
+class DependencyRecord {
+  DependencyRecord(this.dependency, this.change);
+  final ChangeEmitter dependency;
   final Object? change;
 }
 
@@ -183,16 +191,6 @@ abstract class RootEmitter extends EmitterContainer {
   RootEmitter() {
     registerChildren();
   }
-}
-
-///A [Change] used by [EmitterContainer] to notify listeners whenever a child element (see [EmitterContainer.children]) changed
-///or [EmitterContainer.emit] is called.
-class ContainerChange {
-  final List<DependencyChange> childChanges;
-
-  ContainerChange(
-    this.childChanges,
-  );
 }
 
 mixin ListenableEmitterMixin on ChangeEmitter implements Listenable {
