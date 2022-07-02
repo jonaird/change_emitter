@@ -2,7 +2,7 @@ part of 'change_emitter_base.dart';
 
 ///A [ChangeEmitter] implementation of a map. Modifying a [MapEmitter] won't automatically
 ///emit a change. To emit a change after it has been modified, call [_emit].
-class MapEmitter<K, V> extends ChangeEmitter with MapMixin<K, V> {
+class MapEmitter<K, V> extends ChangeEmitter<MapChange<K, V>> with MapMixin<K, V> {
   MapEmitter(Map<K, V> map) : _map = Map.from(map);
   Map<K, V> _map;
 
@@ -195,3 +195,5 @@ class MapModification<K, V> {
   ///Whether the modification inserted and removed a value from the map for a key.
   bool get isReplace => isInsert && isRemove;
 }
+
+typedef MapChange<K, V> = List<MapModification<K, V>>;
