@@ -13,7 +13,7 @@ part of 'change_emitter_base.dart';
 ///list.emit() // emits change
 ///```
 ///
-class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
+class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
   ///Initializes with a list of elements.
   ListEmitter(List<E> list) : _list = List.from(list);
   final List<E> _list;
@@ -311,9 +311,12 @@ class ListModification<E> {
   bool get isReplace => isInsert && isRemove;
 }
 
+typedef ListChange<E> = List<ListModification<E>>;
+
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
-class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements ParentEmitter {
+class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
+    implements ParentEmitter<ListChange<E>> {
   EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
     if (shouldDisposeRemovedElements)
       _sub = changes.listen((change) {
