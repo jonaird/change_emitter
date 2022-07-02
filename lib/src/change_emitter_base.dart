@@ -126,7 +126,7 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
   ContainerChange containerChangeFromDependencyRecords(List<DependencyRecord> records) {
-    return ContainerChange(List<DependencyRecord>.from(dependencies));
+    return ContainerChange(List<DependencyRecord>.from(records));
   }
 
   @protected

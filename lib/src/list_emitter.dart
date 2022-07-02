@@ -37,7 +37,8 @@ class ListEmitter<E> extends ChangeEmitter with ListMixin<E> {
   }
 
   @override
-  Stream<ListChange<E>> get changes => super.changes.cast<ListChange<E>>();
+  Stream<List<ListModification<E>>> get changes =>
+      super.changes.cast<List<ListModification<E>>>();
 
   ///Emits a change if the list has been modified since the last emit (or since it was initialized).
   ///
@@ -329,7 +330,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E> implements Par
   EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
     if (shouldDisposeRemovedElements)
       _sub = changes.listen((change) {
-        for (var mod in change.modifications)
+        for (var mod in change)
           if (mod.isRemove && !this.contains(mod.remove)) mod.remove!.dispose();
       });
   }
