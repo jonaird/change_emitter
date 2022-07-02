@@ -56,7 +56,7 @@ class ScrollEmitter extends EmitterContainer {
         offset = OffsetEmitter(initialScrollOffset) {
     offset.changes.where((change) => !change.setByController).listen((change) {
       controller.removeListener(_listener);
-      controller.jumpTo(change.newValue!);
+      controller.jumpTo(change.newValue);
       controller.addListener(_listener);
     });
     controller.addListener(_listener);
