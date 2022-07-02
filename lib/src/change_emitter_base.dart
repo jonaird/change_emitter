@@ -23,11 +23,11 @@ part 'widgets.dart';
 ///
 ///To implement an emitter with custom Change objects override [changes] and cast it
 ///to the appropriate type.
-abstract class ChangeEmitter {
+abstract class ChangeEmitter<C> {
   ChangeEmitter({bool useSyncronousStream = false})
-      : _controller = StreamController.broadcast(sync: useSyncronousStream);
+      : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
 
-  final StreamController _controller;
+  final StreamController<C> _controller;
 
   ChangeEmitter? _parent;
 
@@ -50,10 +50,10 @@ abstract class ChangeEmitter {
 
   ///Used by subclasses to broadcast [Change]s.
   @protected
-  void addChangeToStream(dynamic change) => _controller.add(change);
+  void addChangeToStream(C change) => _controller.add(change);
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
-  Stream get changes => _controller.stream;
+  Stream<C> get changes => _controller.stream;
 
   ///Disposes resources and closes the stream controller.
   @mustCallSuper
@@ -63,7 +63,7 @@ abstract class ChangeEmitter {
   bool get isDisposed => _controller.isClosed;
 }
 
-mixin ParentEmitter on ChangeEmitter {
+mixin ParentEmitter<C> on ChangeEmitter<C> {
   @protected
   void registerChildren();
   @protected
@@ -104,7 +104,8 @@ mixin ParentEmitter on ChangeEmitter {
 ///```
 ///
 ///
-abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
+abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter<C>
+    with ParentEmitter<C> {
   var _transactionStarted = false;
   final _changesDuringTransaction = <DependencyRecord>[];
 
@@ -120,13 +121,13 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
 
   bool get ongoingTransaction => _transactionStarted;
 
-  late final Stream<ContainerChange> changes = _getStream();
+  late final Stream<C> changes = _getStream();
 
   ///override this method in order to create and use your own subclass of [ContainerChange]
   ///If you use [EmitterContainer.emit] then this function will be called with child and childChange as null
   @protected
-  ContainerChange containerChangeFromDependencyRecords(List<DependencyRecord> records) {
-    return ContainerChange(List<DependencyRecord>.from(records));
+  C containerChangeFromDependencyRecords(List<DependencyRecord> records) {
+    return ContainerChange(List<DependencyRecord>.from(records)) as C;
   }
 
   @protected
@@ -134,16 +135,16 @@ abstract class EmitterContainer extends ChangeEmitter with ParentEmitter {
     return DependencyRecord(dependency, change);
   }
 
-  Stream<ContainerChange> _getStream() {
+  Stream<C> _getStream() {
     final streams = [
       ...dependencies.map(_dependencyToContainerChangeStream),
-      super.changes.cast<ContainerChange>(),
+      super.changes.cast<C>(),
     ];
 
-    return StreamGroup.merge<ContainerChange>(streams).asBroadcastStream();
+    return StreamGroup.merge<C>(streams).asBroadcastStream();
   }
 
-  Stream<ContainerChange> _dependencyToContainerChangeStream(ChangeEmitter dependency) {
+  Stream<C> _dependencyToContainerChangeStream(ChangeEmitter dependency) {
     return dependency.changes.where((change) {
       if (_transactionStarted)
         _changesDuringTransaction.add(dependencyRecordFromChange(dependency, change));
