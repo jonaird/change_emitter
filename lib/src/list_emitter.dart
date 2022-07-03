@@ -13,7 +13,7 @@ part of 'change_emitter_base.dart';
 ///list.emit() // emits change
 ///```
 ///
-class ListEmitter<E> extends ChangeEmitter<ListChange<E>> with ListMixin<E> {
+class ListEmitter<E> extends ChangeEmitterBase<ListChange<E>> with ListMixin<E> {
   ///Initializes with a list of elements.
   ListEmitter(List<E> list) : _list = List.from(list);
   final List<E> _list;

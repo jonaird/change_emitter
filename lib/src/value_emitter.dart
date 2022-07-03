@@ -1,7 +1,7 @@
 part of 'change_emitter_base.dart';
 
 ///A simple [ChangeEmitter] that stores a value, emits a [ValueChange] whenever the value changes.
-class ValueEmitter<T> extends ChangeEmitter<ValueChange<T>> {
+class ValueEmitter<T> extends ChangeEmitterBase<ValueChange<T>> {
   ValueEmitter(
     T value, {
     this.keepHistory = false,

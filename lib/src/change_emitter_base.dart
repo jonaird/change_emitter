@@ -24,7 +24,27 @@ part 'widgets.dart';
 ///To implement an emitter with custom Change objects override [changes] and cast it
 ///to the appropriate type.
 abstract class ChangeEmitter<C> {
-  ChangeEmitter({bool useSyncronousStream = false})
+  ChangeEmitter? _parent;
+
+  ChangeEmitter? get parent;
+
+  ///Will be called after [parent] is set and the ancestor tree is available.
+  @protected
+  void didRegisterParent();
+
+  ///The stream of [Change]s to notify your UI or other state elements that they should update.
+  Stream<C> get changes;
+
+  ///Disposes resources and closes the stream controller.
+  @mustCallSuper
+  void dispose();
+
+  ///Whether [this] has been disposed.
+  bool get isDisposed;
+}
+
+class ChangeEmitterBase<C> extends ChangeEmitter<C> {
+  ChangeEmitterBase({bool useSyncronousStream = false})
       : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
 
   final StreamController<C> _controller;
@@ -44,16 +64,16 @@ abstract class ChangeEmitter<C> {
     return null;
   }
 
-  ///Will be called after [parent] is set and the ancestor tree is available.
-  @protected
-  void didRegisterParent() => null;
-
   ///Used by subclasses to broadcast [Change]s.
   @protected
   void addChangeToStream(C change) => _controller.add(change);
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
   Stream<C> get changes => _controller.stream;
+
+  ///Will be called after [parent] is set and the ancestor tree is available.
+  @protected
+  void didRegisterParent() => null;
 
   ///Disposes resources and closes the stream controller.
   @mustCallSuper
@@ -104,7 +124,7 @@ mixin ParentEmitter<C> on ChangeEmitter<C> {
 ///```
 ///
 ///
-abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter<C>
+abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitterBase<C>
     with ParentEmitter<C> {
   var _transactionStarted = false;
   final _recordsDuringTransaction = <DependencyRecord>[];
