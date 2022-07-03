@@ -36,10 +36,6 @@ class ListEmitter<E> extends ChangeEmitterBase<ListChange<E>> with ListMixin<E> 
     if (!_transactionStarted && _mutationDepth == 0) _emit();
   }
 
-  @override
-  Stream<List<ListModification<E>>> get changes =>
-      super.changes.cast<List<ListModification<E>>>();
-
   ///Emits a change if the list has been modified since the last emit (or since it was initialized).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
@@ -316,7 +312,7 @@ typedef ListChange<E> = List<ListModification<E>>;
 /// A [ListEmitter] that can only contain [ChangeEmitter]s. [EmitterList] will automatically dispose
 /// elements that get removed from the list and all remaining elements in the list when it is disposed.
 class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
-    implements ParentEmitter<ListChange<E>> {
+    with ParentEmitter<ListChange<E>> {
   EmitterList(List<E> list, {this.shouldDisposeRemovedElements = true}) : super(list) {
     if (shouldDisposeRemovedElements)
       _sub = changes.listen((change) {
@@ -327,33 +323,30 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
   final bool shouldDisposeRemovedElements;
   StreamSubscription? _sub;
 
-  void registerChild(ChangeEmitter child) {
-    if (child._parent != this && _parent != null) {
-      child._parent = this;
-      child.didRegisterParent();
+  get children => this;
+
+  void _registerChild(ChangeEmitter child) {
+    if (child.parent != this && parent != null) {
+      child.registerParent(this);
       if (child is ParentEmitter) child.registerChildren();
     }
-  }
-
-  void registerChildren() {
-    for (var child in this) registerChild(child);
   }
 
   //Registers children for all possible ways of adding an element to the list.
 
   operator []=(int index, E value) {
     super[index] = value;
-    registerChild(value);
+    _registerChild(value);
   }
 
   void insert(int index, E element) {
     super.insert(index, element);
-    registerChild(element);
+    _registerChild(element);
   }
 
   void add(E element) {
     super.add(element);
-    registerChild(element);
+    _registerChild(element);
   }
 
   @mustCallSuper

@@ -24,13 +24,9 @@ part 'widgets.dart';
 ///To implement an emitter with custom Change objects override [changes] and cast it
 ///to the appropriate type.
 abstract class ChangeEmitter<C> {
-  ChangeEmitter? _parent;
+  void registerParent(ParentEmitter parent);
 
-  ChangeEmitter? get parent;
-
-  ///Will be called after [parent] is set and the ancestor tree is available.
-  @protected
-  void didRegisterParent();
+  ParentEmitter? get parent;
 
   ///The stream of [Change]s to notify your UI or other state elements that they should update.
   Stream<C> get changes;
@@ -49,9 +45,16 @@ class ChangeEmitterBase<C> extends ChangeEmitter<C> {
 
   final StreamController<C> _controller;
 
-  ChangeEmitter? _parent;
+  ParentEmitter? _parent;
 
-  ChangeEmitter? get parent => _parent;
+  @override
+  ParentEmitter? get parent => _parent;
+
+  @override
+  void registerParent(ParentEmitter parent) {
+    _parent = parent;
+    didRegisterParent();
+  }
 
   T? findAncestorOfExactType<T extends ChangeEmitter>() {
     var ancestor = parent;
@@ -84,13 +87,13 @@ class ChangeEmitterBase<C> extends ChangeEmitter<C> {
 }
 
 mixin ParentEmitter<C> on ChangeEmitter<C> {
+  Iterable<ChangeEmitter> get children;
   @protected
-  void registerChildren();
-  @protected
-  void registerChild(ChangeEmitter child) {
-    child._parent = this;
-    child.didRegisterParent();
-    if (child is ParentEmitter) child.registerChildren();
+  void registerChildren() {
+    for (final child in children) {
+      child.registerParent(this);
+      if (child is ParentEmitter) child.registerChildren();
+    }
   }
 }
 
@@ -128,10 +131,6 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
     with ParentEmitter<C> {
   var _transactionStarted = false;
   final _recordsDuringTransaction = <DependencyRecord>[];
-
-  void registerChildren() {
-    for (var child in children) registerChild(child);
-  }
 
   void startTransaction() => scheduleMicrotask(() => _transactionStarted = true);
   void endTransaction() {
