@@ -107,16 +107,18 @@ mixin ParentEmitter<C> on ChangeEmitter<C> {
 abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter<C>
     with ParentEmitter<C> {
   var _transactionStarted = false;
-  final _changesDuringTransaction = <DependencyRecord>[];
+  final _recordsDuringTransaction = <DependencyRecord>[];
 
   void registerChildren() {
     for (var child in children) registerChild(child);
   }
 
-  void startTransaction() => _transactionStarted = true;
+  void startTransaction() => scheduleMicrotask(() => _transactionStarted = true);
   void endTransaction() {
-    addChangeToStream(containerChangeFromDependencyRecords(_changesDuringTransaction));
-    _transactionStarted = false;
+    scheduleMicrotask(() {
+      _transactionStarted = false;
+      addChangeToStream(containerChangeFromDependencyRecords(_recordsDuringTransaction));
+    });
   }
 
   bool get ongoingTransaction => _transactionStarted;
@@ -147,7 +149,7 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
   Stream<C> _dependencyToContainerChangeStream(ChangeEmitter dependency) {
     return dependency.changes.where((change) {
       if (_transactionStarted)
-        _changesDuringTransaction.add(dependencyRecordFromChange(dependency, change));
+        _recordsDuringTransaction.add(dependencyRecordFromChange(dependency, change));
       return !_transactionStarted;
     }).map((change) => containerChangeFromDependencyRecords(
         [dependencyRecordFromChange(dependency, change)]));
