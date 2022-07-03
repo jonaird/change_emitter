@@ -190,7 +190,7 @@ class DependencyRecord {
   final Object? change;
 }
 
-abstract class RootEmitter extends EmitterContainer {
+abstract class RootEmitter<C extends ContainerChange> extends EmitterContainer<C> {
   RootEmitter() {
     registerChildren();
   }
