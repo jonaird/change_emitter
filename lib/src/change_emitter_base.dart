@@ -56,17 +56,6 @@ class ChangeEmitterBase<C> extends ChangeEmitter<C> {
     didRegisterParent();
   }
 
-  T? findAncestorOfExactType<T extends ChangeEmitter>() {
-    var ancestor = parent;
-    while (ancestor != null)
-      if (ancestor.runtimeType == T)
-        return ancestor as T;
-      else
-        ancestor = ancestor.parent;
-
-    return null;
-  }
-
   ///Used by subclasses to broadcast [Change]s.
   @protected
   void addChangeToStream(C change) => _controller.add(change);
@@ -141,6 +130,17 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
   }
 
   bool get ongoingTransaction => _transactionStarted;
+
+  T? findAncestorOfExactType<T extends ChangeEmitter>() {
+    var ancestor = parent;
+    while (ancestor != null)
+      if (ancestor.runtimeType == T)
+        return ancestor as T;
+      else
+        ancestor = ancestor.parent;
+
+    return null;
+  }
 
   late final Stream<C> changes = _getStream();
 
