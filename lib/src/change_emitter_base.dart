@@ -24,7 +24,8 @@ part 'widgets.dart';
 ///To implement an emitter with custom Change objects override [changes] and cast it
 ///to the appropriate type.
 abstract class ChangeEmitter<C> {
-  void registerParent(ParentEmitter parent);
+  @protected
+  void register(ParentEmitter parent);
 
   ParentEmitter? get parent;
 
@@ -32,7 +33,6 @@ abstract class ChangeEmitter<C> {
   Stream<C> get changes;
 
   ///Disposes resources and closes the stream controller.
-  @mustCallSuper
   void dispose();
 
   ///Whether [this] has been disposed.
@@ -51,9 +51,9 @@ class ChangeEmitterBase<C> extends ChangeEmitter<C> {
   ParentEmitter? get parent => _parent;
 
   @override
-  void registerParent(ParentEmitter parent) {
+  void register(ParentEmitter parent) {
     _parent = parent;
-    didRegisterParent();
+    didRegisterWithParent();
   }
 
   ///Used by subclasses to broadcast [Change]s.
@@ -65,7 +65,7 @@ class ChangeEmitterBase<C> extends ChangeEmitter<C> {
 
   ///Will be called after [parent] is set and the ancestor tree is available.
   @protected
-  void didRegisterParent() => null;
+  void didRegisterWithParent() => null;
 
   ///Disposes resources and closes the stream controller.
   @mustCallSuper
@@ -80,7 +80,7 @@ mixin ParentEmitter<C> on ChangeEmitter<C> {
   @protected
   void registerChildren() {
     for (final child in children) {
-      child.registerParent(this);
+      child.register(this);
       if (child is ParentEmitter) child.registerChildren();
     }
   }

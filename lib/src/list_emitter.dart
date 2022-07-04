@@ -327,7 +327,7 @@ class EmitterList<E extends ChangeEmitter> extends ListEmitter<E>
 
   void _registerChild(ChangeEmitter child) {
     if (child.parent != this && parent != null) {
-      child.registerParent(this);
+      child.register(this);
       if (child is ParentEmitter) child.registerChildren();
     }
   }

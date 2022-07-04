@@ -45,10 +45,10 @@ class TabState extends EmitterContainer {
   void clearText() => textInput.text.value = '';
 
   ///Ancestors in the state tree are accessible after
-  ///[ChangeEmitter.didRegisterParent] is fired letting you access [parent]
+  ///[ChangeEmitter.didRegisterWithParent] is fired letting you access [parent]
   ///and [findAncestorOfExactType]
   @override
-  void didRegisterParent() {
+  void didRegisterWithParent() {
     print(parent);
     print(findAncestorOfExactType<AppState>());
   }
