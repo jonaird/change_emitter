@@ -44,48 +44,101 @@ class TextEditingEmitter extends EmitterContainer {
   }
 }
 
-class ScrollEmitter extends EmitterContainer {
-  ScrollEmitter({
-    double initialScrollOffset = 0.0,
-    bool keepScrollOffset = true,
-    String? debugLabel,
-  })  : controller = ScrollController(
-            initialScrollOffset: initialScrollOffset,
-            keepScrollOffset: keepScrollOffset,
-            debugLabel: debugLabel),
-        _offset = ValueEmitter(_OffsetSource(initialScrollOffset, false)) {
-    _offset.changes.where((change) => !change.newValue.fromController).listen((change) {
-      controller.removeListener(_listener);
-      controller.jumpTo(change.newValue.offset);
-      controller.addListener(_listener);
-    });
-    controller.addListener(_listener);
+// class ScrollEmitter extends EmitterContainer {
+//   ScrollEmitter({
+//     double initialScrollOffset = 0.0,
+//     bool keepScrollOffset = true,
+//     String? debugLabel,
+//   })  : controller = ScrollController(
+//             initialScrollOffset: initialScrollOffset,
+//             keepScrollOffset: keepScrollOffset,
+//             debugLabel: debugLabel),
+//         _offset = ValueEmitter(_OffsetSource(initialScrollOffset, false)) {
+//     _offset.changes.where((change) => !change.newValue.fromController).listen((change) {
+//       controller.removeListener(_listener);
+//       controller.jumpTo(change.newValue.offset);
+//       controller.addListener(_listener);
+//     });
+//     controller.addListener(_listener);
+//   }
+
+//   _listener() => _offset.value = _OffsetSource(controller.offset, true);
+
+//   final ScrollController controller;
+//   final ValueEmitter<_OffsetSource> _offset;
+
+//   set offset(double offset) => _offset.value = _OffsetSource(offset, false);
+
+//   double get offset => _offset.value.offset;
+
+//   void jumpTo(double offset) => this._offset.value = _OffsetSource(offset, false);
+
+//   void animateTo(double offset, {required Duration duration, required Curve curve}) =>
+//       controller.animateTo(offset, duration: duration, curve: curve);
+
+//   get children => {_offset};
+
+//   dispose() {
+//     Timer(Duration(seconds: 3), () => controller.dispose());
+//     super.dispose();
+//   }
+// }
+
+// class _OffsetSource {
+//   _OffsetSource(this.offset, this.fromController);
+//   final double offset;
+//   final bool fromController;
+// }
+
+class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
+  ScrollEmitter({super.initialScrollOffset = 0, super.debugLabel})
+      : _storedOffset = initialScrollOffset,
+        super(keepScrollOffset: false);
+  final _streamController = StreamController<double>.broadcast();
+  Stream<double> get changes => _streamController.stream;
+  ParentEmitter? _parent;
+  void register(ParentEmitter newParent) => _parent = newParent;
+  ParentEmitter? get parent => _parent;
+  bool get isDisposed => _streamController.isClosed;
+
+  double _storedOffset;
+
+  @override
+  void attach(ScrollPosition newPosition) {
+    if (positions.isNotEmpty) throw ('scroll position already attached');
+    newPosition.addListener(_onPositionChange);
+    super.attach(position);
   }
 
-  _listener() => _offset.value = _OffsetSource(controller.offset, true);
+  @override
+  void detach(ScrollPosition position) {
+    super.detach(position);
+    position.removeListener(_onPositionChange);
+  }
 
-  final ScrollController controller;
-  final ValueEmitter<_OffsetSource> _offset;
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) {
+    return ScrollPositionWithSingleContext(
+      physics: physics,
+      context: context,
+      initialPixels: _storedOffset,
+      keepScrollOffset: false,
+      oldPosition: oldPosition,
+      debugLabel: debugLabel,
+    );
+  }
 
-  set offset(double offset) => _offset.value = _OffsetSource(offset, false);
+  void _onPositionChange() {
+    _streamController.add(position.pixels);
+    _storedOffset = position.pixels;
+  }
 
-  double get offset => _offset.value.offset;
-
-  void jumpTo(double offset) => this._offset.value = _OffsetSource(offset, false);
-
-  void animateTo(double offset, {required Duration duration, required Curve curve}) =>
-      controller.animateTo(offset, duration: duration, curve: curve);
-
-  get children => {_offset};
-
-  dispose() {
-    Timer(Duration(seconds: 3), () => controller.dispose());
+  @override
+  void dispose() {
+    _streamController.close();
     super.dispose();
   }
-}
-
-class _OffsetSource {
-  _OffsetSource(this.offset, this.fromController);
-  final double offset;
-  final bool fromController;
 }
