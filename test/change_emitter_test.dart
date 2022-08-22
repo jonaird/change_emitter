@@ -157,7 +157,6 @@ void main() {
               builder: (context, _) {
                 if (showScrollView.value) {
                   return ListView.builder(
-                    key: Key('list view'),
                     controller: scrollEmitter,
                     itemBuilder: (context, index) => ListTile(title: Text(index.toString())),
                   );
@@ -178,7 +177,7 @@ void main() {
       final savedOffset = scrollEmitter.offset;
       showScrollView.value = false;
       await widgetTester.pump();
-      expect(find.byKey(Key('list view')), findsNothing);
+      expect(listFinder, findsNothing);
 
       showScrollView.value = true;
       await widgetTester.pump();
