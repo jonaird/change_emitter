@@ -182,8 +182,6 @@ void main() {
       showScrollView.value = true;
       await widgetTester.pump();
       expect(scrollEmitter.offset, savedOffset);
-
-      return Future.value();
     });
   });
 }
