@@ -63,6 +63,7 @@ class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
 
   double? _storedOffset;
 
+  ///The stored offset. Provides [initialScrollOffset] before attaching to a [scrollable]
   @override
   double get offset => _storedOffset ?? initialScrollOffset;
 
