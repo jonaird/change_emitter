@@ -1,10 +1,8 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 // import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:collection/collection.dart';
-
 import 'package:change_emitter/change_emitter.dart';
 
 var eq = DeepCollectionEquality();
@@ -143,6 +141,50 @@ void main() {
       emitter.liste.add(7);
       emitter.endTransaction();
       scheduleMicrotask(() => expect(numChanges, 1));
+    });
+  });
+
+  group('ScrollEmitter', () {
+    testWidgets('restores correct scroll position', (widgetTester) async {
+      var showScrollView = ValueNotifier(true);
+      final scrollEmitter = ScrollEmitter();
+
+      await widgetTester.pumpWidget(
+        MaterialApp(
+          home: Material(
+            child: AnimatedBuilder(
+              animation: showScrollView,
+              builder: (context, _) {
+                if (showScrollView.value) {
+                  return ListView.builder(
+                    key: Key('list view'),
+                    controller: scrollEmitter,
+                    itemBuilder: (context, index) => ListTile(title: Text(index.toString())),
+                  );
+                } else
+                  return Container();
+              },
+            ),
+          ),
+        ),
+      );
+
+      var listFinder = find.byType(Scrollable);
+      var itemFinder = find.text('50');
+
+      await widgetTester.scrollUntilVisible(itemFinder, 50, scrollable: listFinder);
+      expect(scrollEmitter.offset, isNot(0));
+
+      final savedOffset = scrollEmitter.offset;
+      showScrollView.value = false;
+      await widgetTester.pump();
+      expect(find.byKey(Key('list view')), findsNothing);
+
+      showScrollView.value = true;
+      await widgetTester.pump();
+      expect(scrollEmitter.offset, savedOffset);
+
+      return Future.value();
     });
   });
 }
