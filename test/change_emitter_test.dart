@@ -27,7 +27,7 @@ void main() {
       expect(eq.equals(list, listEmitter), true);
     });
 
-    test('setting new length', () {
+    test('setting new length works', () {
       var list = <int?>[1, 2, 3, 4, 5, 6];
       var listEmitter = ListEmitter(list);
 
@@ -79,19 +79,34 @@ void main() {
     });
   });
 
-  test('MapEmitter multi-unit test', () {
-    var map = <String, int>{'one': 1, 'two': 2, 'three': 3};
-    var mapEmitter = MapEmitter(map);
+  group('MapEmitter', () {
+    test('MapEmitter multi-unit test', () {
+      var map = <String, int>{'one': 1, 'two': 2, 'three': 3};
+      var mapEmitter = MapEmitter(map);
 
-    void visitMap(Map<String, int> map) {
-      map['four'] = 4;
-      map.remove('two');
-    }
+      void visitMap(Map<String, int> map) {
+        map['four'] = 4;
+        map.remove('two');
+      }
 
-    visitMap(map);
-    visitMap(mapEmitter);
+      visitMap(map);
+      visitMap(mapEmitter);
 
-    expect(eq.equals(map, mapEmitter), true);
+      expect(eq.equals(map, mapEmitter), true);
+    });
+    test('transactions only emit once', () async {
+      final map = MapEmitter({0: 1, 4: 5, 3: 4});
+      var numEmits = 0;
+      map.changes.listen((event) {
+        numEmits++;
+      });
+      map.startTransaction();
+      map.addEntries([MapEntry(5, 3)]);
+      map.remove(2);
+      map[0] = 6;
+      map.endTransaction();
+      scheduleMicrotask(() => expect(numEmits, 1));
+    });
   });
 
   test('EmitterList disposes of removed children', () async {
@@ -99,51 +114,35 @@ void main() {
     var list = EmitterList([emitter]);
     list.removeLast();
     await Future.delayed(Duration(milliseconds: 200));
-    expect(emitter.isDisposed, true);
+    scheduleMicrotask(() => expect(emitter.isDisposed, true));
   });
 
   test('ValueEmitter.reactive constructor works without throwing', () {
     var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
-    expect((a is ValueEmitter<bool>), true);
   });
-
-  test('findAncestorOfExactType works in deep heirarchies', () {
-    var example = ExampleEmitter();
-    var secondExample = ExampleEmitter();
-    example.registerChildren();
-    example.elist.add(secondExample);
-    var ancestor = secondExample.findAncestorOfExactType<ExampleEmitter>();
-    expect(example, ancestor);
-  });
-
-  test('transactions work on maps', () async {
-    final map = MapEmitter({0: 1, 4: 5, 3: 4});
-    var numEmits = 0;
-    map.changes.listen((event) {
-      numEmits++;
+  group('EmitterContainer', () {
+    test('findAncestorOfExactType works in deep heirarchies', () {
+      var example = ExampleEmitter();
+      var secondExample = ExampleEmitter();
+      example.registerChildren();
+      example.elist.add(secondExample);
+      var ancestor = secondExample.findAncestorOfExactType<ExampleEmitter>();
+      expect(example, ancestor);
     });
-    map.startTransaction();
-    map.addEntries([MapEntry(5, 3)]);
-    map.remove(2);
-    map[0] = 6;
-    map.endTransaction();
-    await Future.delayed(Duration(milliseconds: 500));
-    expect(numEmits, 1);
-  });
 
-  test('using transaction on a container catches all child changes', () async {
-    final emitter = ExampleEmitter();
-    var numChanges = 0;
-    emitter.changes.listen((event) => numChanges++);
-    emitter.startTransaction();
+    test('only emits once after a transaction', () async {
+      final emitter = ExampleEmitter();
+      var numChanges = 0;
+      emitter.changes.listen((event) => numChanges++);
+      emitter.startTransaction();
 
-    emitter.liste.add(5);
-    emitter.liste.add(7);
-    emitter.liste.add(7);
-    emitter.liste.add(7);
-    emitter.liste.add(7);
-    emitter.endTransaction();
-    await Future.delayed(Duration(milliseconds: 500));
-    expect(numChanges, 1);
+      emitter.liste.add(5);
+      emitter.liste.add(7);
+      emitter.liste.add(7);
+      emitter.liste.add(7);
+      emitter.liste.add(7);
+      emitter.endTransaction();
+      scheduleMicrotask(() => expect(numChanges, 1));
+    });
   });
 }
