@@ -44,52 +44,6 @@ class TextEditingEmitter extends EmitterContainer {
   }
 }
 
-// class ScrollEmitter extends EmitterContainer {
-//   ScrollEmitter({
-//     double initialScrollOffset = 0.0,
-//     bool keepScrollOffset = true,
-//     String? debugLabel,
-//   })  : controller = ScrollController(
-//             initialScrollOffset: initialScrollOffset,
-//             keepScrollOffset: keepScrollOffset,
-//             debugLabel: debugLabel),
-//         _offset = ValueEmitter(_OffsetSource(initialScrollOffset, false)) {
-//     _offset.changes.where((change) => !change.newValue.fromController).listen((change) {
-//       controller.removeListener(_listener);
-//       controller.jumpTo(change.newValue.offset);
-//       controller.addListener(_listener);
-//     });
-//     controller.addListener(_listener);
-//   }
-
-//   _listener() => _offset.value = _OffsetSource(controller.offset, true);
-
-//   final ScrollController controller;
-//   final ValueEmitter<_OffsetSource> _offset;
-
-//   set offset(double offset) => _offset.value = _OffsetSource(offset, false);
-
-//   double get offset => _offset.value.offset;
-
-//   void jumpTo(double offset) => this._offset.value = _OffsetSource(offset, false);
-
-//   void animateTo(double offset, {required Duration duration, required Curve curve}) =>
-//       controller.animateTo(offset, duration: duration, curve: curve);
-
-//   get children => {_offset};
-
-//   dispose() {
-//     Timer(Duration(seconds: 3), () => controller.dispose());
-//     super.dispose();
-//   }
-// }
-
-// class _OffsetSource {
-//   _OffsetSource(this.offset, this.fromController);
-//   final double offset;
-//   final bool fromController;
-// }
-
 class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
   ScrollEmitter({super.initialScrollOffset = 0, super.debugLabel})
       : _storedOffset = initialScrollOffset,
