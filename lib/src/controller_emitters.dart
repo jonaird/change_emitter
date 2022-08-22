@@ -44,6 +44,11 @@ class TextEditingEmitter extends EmitterContainer {
   }
 }
 
+///A drop in replacement for [ScrollController] that is also a [ChangeEmitter].
+///[ScrollEmiiter] differs in behavior in 2 ways:
+/// 1. It can only be used with one [Scrollable] widget at a time.
+/// 2. The scroll position is stored internally rather than in [PageStorage].
+/// These changes allow scroll position to be treated as part of app state.
 class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
   ScrollEmitter({super.initialScrollOffset = 0, super.debugLabel})
       : _storedOffset = initialScrollOffset,
@@ -59,7 +64,8 @@ class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
 
   @override
   void attach(ScrollPosition newPosition) {
-    if (positions.isNotEmpty) throw ('scroll position already attached');
+    if (positions.isNotEmpty)
+      throw ('ScrollEmitter should only be used with one Scrollable widget at a time');
     newPosition.addListener(_onPositionChange);
     super.attach(newPosition);
   }
