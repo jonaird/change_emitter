@@ -107,7 +107,7 @@ class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
   void attach(ScrollPosition newPosition) {
     if (positions.isNotEmpty) throw ('scroll position already attached');
     newPosition.addListener(_onPositionChange);
-    super.attach(position);
+    super.attach(newPosition);
   }
 
   @override
