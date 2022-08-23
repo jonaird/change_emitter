@@ -143,7 +143,15 @@ void main() {
       scheduleMicrotask(() => expect(numChanges, 1));
     });
   });
-
+  group('TextEditingEmitter', () {
+    test('emits changes on a new value', () {
+      final textEditingEmitter = TextEditingEmitter(text: '');
+      bool didEmitChange = false;
+      textEditingEmitter.textEmitter.changes.listen((event) => didEmitChange = true);
+      textEditingEmitter.text = 'foo';
+      scheduleMicrotask(() => expect(didEmitChange, true));
+    });
+  });
   group('ScrollEmitter', () {
     testWidgets('restores correct scroll position', (widgetTester) async {
       var showScrollView = ValueNotifier(true);

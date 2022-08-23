@@ -39,6 +39,20 @@ abstract class ChangeEmitter<C> {
   bool get isDisposed;
 }
 
+mixin ChangeEmitterMixin<C> implements ChangeEmitter<C> {
+  final _streamController = StreamController<C>.broadcast();
+  Stream<C> get changes => _streamController.stream;
+  ParentEmitter? _parent;
+  void register(ParentEmitter newParent) => _parent = newParent;
+  ParentEmitter? get parent => _parent;
+  bool get isDisposed => _streamController.isClosed;
+  void dispose() => _streamController.close();
+  @protected
+  void closeStreamController() => _streamController.close();
+  @protected
+  void addChangeToStream(C change) => _streamController.add(change);
+}
+
 class ChangeEmitterBase<C> extends ChangeEmitter<C> {
   ChangeEmitterBase({bool useSyncronousStream = false})
       : _controller = StreamController<C>.broadcast(sync: useSyncronousStream);
@@ -185,7 +199,7 @@ abstract class EmitterContainer<C extends ContainerChange> extends ChangeEmitter
   ///to trigger changes, then you don't need to override this getter.
   Set<ChangeEmitter> get dependencies => children;
 
-  ///Emits [new ContainerChange.any]).
+  ///Emits [ContainerChange.any]).
   ///
   ///To emit a change but prevent a parent [EmitterContainer] from emitting a change, set quiet to true.
   void emit() => addChangeToStream(containerChangeFromDependencyRecords([]));
