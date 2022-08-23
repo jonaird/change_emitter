@@ -1,49 +1,5 @@
 part of 'change_emitter_base.dart';
 
-///A [ChangeEmitter] that lets you read values from and control a [TextField]. To use,
-///provide the [TextField] with the [controller] property. The controller will be disposed when
-///[this] is disposed. Should only be used with one TextField at a time.
-// class TextEditingEmitter extends EmitterContainer {
-//   TextEditingEmitter({String text = ''})
-//       : text = ValueEmitter(text),
-//         controller = TextEditingController(text: text) {
-//     _subscription = changes.listen((change) {
-//       controller.value = controller.value.copyWith(
-//         text: this.text.value,
-//         selection: selection.value,
-//         composing: composing.value,
-//       );
-//     });
-//     controller.addListener(() {
-//       this.text.value = controller.text;
-//       selection.value = controller.selection;
-//       composing.value = controller.value.composing;
-//     });
-//   }
-
-//   ///Control and read the text from a [TextField].
-//   final ValueEmitter<String> text;
-
-//   ///Control and read selection.
-//   final selection = ValueEmitter(TextSelection.collapsed(offset: -1));
-
-//   ///Control and read composition.
-//   final ValueEmitter<TextRange> composing = ValueEmitter(TextRange.empty);
-//   final TextEditingController controller;
-//   late StreamSubscription _subscription;
-
-//   get children => {text, selection, composing};
-
-//   get dependencies => {text, selection, composing};
-
-//   void dispose() {
-//     _subscription.cancel();
-//     //sometimes the controller is still attached to a view after disposing.
-//     Timer(Duration(seconds: 3), () => controller.dispose());
-//     super.dispose();
-//   }
-// }
-
 ///A drop in replacement for TextEditingController that is also
 ///a [ChangeEmitter]. Also provides [textEmitter], [selectionEmitter],
 ///[composingEmitter].
