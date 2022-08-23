@@ -1,3 +1,6 @@
+## [2.0] - 2.0 Release
+ - reimplemented TextEditingEmitter (breaking changes)
+
 ## [1.0.0-beta.3] - Breaking changes to EmitterContainer, Provider, new change emitters
  - `EmitterContainer.emittingChildren` renamed to `dependencies`.
  - `dependencies` and `children` are now sets instead of lists.
