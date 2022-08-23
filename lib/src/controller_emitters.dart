@@ -50,12 +50,12 @@ class TextEditingEmitter extends EmitterContainer {
 /// 2. The scroll position is stored internally rather than in [PageStorage].
 /// 3. [offset] is available before and after being attaching to a [ScrollPosition]
 /// These changes allow scroll position to be treated as part of app state.
-class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
+class ScrollEmitter extends ScrollController implements ChangeEmitter<ValueChange<double>> {
   ScrollEmitter({super.initialScrollOffset = 0, super.debugLabel})
       : _storedOffset = initialScrollOffset,
         super(keepScrollOffset: false);
-  final _streamController = StreamController<double>.broadcast();
-  Stream<double> get changes => _streamController.stream;
+  final _streamController = StreamController<ValueChange<double>>.broadcast();
+  Stream<ValueChange<double>> get changes => _streamController.stream;
   ParentEmitter? _parent;
   void register(ParentEmitter newParent) => _parent = newParent;
   ParentEmitter? get parent => _parent;
@@ -63,7 +63,7 @@ class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
 
   double? _storedOffset;
 
-  ///The stored offset. Provides [initialScrollOffset] before attaching to a [scrollable]
+  ///The stored offset. Provides [initialScrollOffset] before attaching to a [Scrollable]
   @override
   double get offset => _storedOffset ?? initialScrollOffset;
 
@@ -97,7 +97,7 @@ class ScrollEmitter extends ScrollController implements ChangeEmitter<double> {
   }
 
   void _onPositionChange() {
-    _streamController.add(position.pixels);
+    _streamController.add(ValueChange(_storedOffset, position.pixels));
     _storedOffset = position.pixels;
   }
 
