@@ -44,6 +44,9 @@ part of 'change_emitter_base.dart';
 //   }
 // }
 
+///A drop in replacement for TextEditingController that is also
+///a [ChangeEmitter]. Also provides [textEmitter], [selectionEmitter],
+///[composingEmitter].
 class TextEditingEmitter extends TextEditingController
     with ChangeEmitterMixin<ValueChange<TextEditingValue>> {
   TextEditingEmitter({super.text}) {
