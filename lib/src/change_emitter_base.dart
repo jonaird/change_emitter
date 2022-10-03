@@ -12,8 +12,7 @@ part 'controller_emitters.dart';
 part 'widgets.dart';
 
 ///An alternative to [ChangeNotifier] from the Flutter framework that exposes
-///a stream of [Change]s to notify widgets and other components of your state
-///that they should update instead of a list of callbacks. This allows [ChangeEmitter]s
+///a stream of change objects rather than using a list of callbacks. This allows [ChangeEmitter]s
 ///to provide extra information about individual changes and makes them more easily composable.
 ///
 ///For more information on how to compose [ChangeEmitter]s, see [EmitterContainer].
