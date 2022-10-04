@@ -115,8 +115,10 @@ void main() {
     scheduleMicrotask(() => expect(emitter.isDisposed, true));
   });
 
-  test('ValueEmitter.reactive constructor works without throwing', () {
-    var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
+  group('ValueEmitter', () {
+    test('ValueEmitter.reactive constructor works without throwing', () {
+      var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
+    });
   });
   group('EmitterContainer', () {
     test('findAncestorOfExactType works in deep heirarchies', () {
