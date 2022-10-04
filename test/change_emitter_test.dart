@@ -116,8 +116,30 @@ void main() {
   });
 
   group('ValueEmitter', () {
-    test('ValueEmitter.reactive constructor works without throwing', () {
+    test('.reactive constructor works without throwing', () {
       var a = ValueEmitter.reactive(reactTo: [], withValue: () => true);
+      expect(a, isNotNull);
+    });
+
+    test(' emits correct change object', () {
+      final val = ValueEmitter(1);
+      val.changes.listen((change) {
+        expect(change.oldValue, 1);
+        expect(change.newValue, 2);
+        expect(val.value, 2);
+      });
+      val.value = 2;
+    });
+
+    test('can\'t change unmodifiable views', () {
+      final val = ValueEmitter(1).unmodifiableView;
+      var threwError = false;
+      try {
+        val.value = 2;
+      } catch (err) {
+        threwError = true;
+      }
+      expect(threwError, true);
     });
   });
   group('EmitterContainer', () {
