@@ -41,9 +41,6 @@ class ValueEmitter<T> extends ChangeEmitterBase<ValueChange<T>> {
   final _history = <T>[];
   final bool keepHistory;
 
-  @override
-  Stream<ValueChange<T>> get changes => super.changes.cast<ValueChange<T>>();
-
   ValueEmitter<T>? _unmodifiableView;
 
   ValueEmitter<T> get unmodifiableView {
@@ -52,16 +49,12 @@ class ValueEmitter<T> extends ChangeEmitterBase<ValueChange<T>> {
   }
 
   ///A stream of new values.
-  Stream<T> get values => changes.map<T>((event) => value);
+  Stream<T> get values => changes.map<T>((event) => event.newValue);
 
   ///Whether the current value is null.
   bool get isNull => value == null;
 
   bool get isNotNull => value != null;
-
-  ///For subclasses to set values without emitting a change
-  @protected
-  void setValue(T newValue) => _value = newValue;
 
   void _setValueWithoutUnmodifiableCheck(T newValue) {
     assert(!isDisposed);
