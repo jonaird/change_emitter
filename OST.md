@@ -8,7 +8,7 @@ The goal of the Observable State Tree (OST) pattern is to provide an architectur
 
 
 ## Definition
-![https://raw.githubusercontent.com/jonaird/change_emitter/master/OST.webp]()
+![](OST.webp)
 Observable State Trees (OSTs) are a state management pattern for Flutter applications. OSTs consist of a single tree of observable objects that hold all application state, data, and business logic required for the app to function. Each node of the OST corresponds to a widget in the widget tree. The objects in the OST are designed to notify listeners (i.e., the widgets) when any part of the state changes, triggering a rebuild of the widget. A widget may only depend on its corresponding node in the OST and it is the OST node's responsibility to access any data or state that exists higher up in the tree. OST's follow the "one way data flow" pattern. Responding to user interaction is also defered to the OST node ensuring that the sole responsibility of the widget itself is simply to display the UI.
 
 ## Advantages
