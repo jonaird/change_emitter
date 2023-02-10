@@ -1,6 +1,10 @@
 # change_emitter
- 
-ChangeEmitter is a highly composable, flexible alternative to [ChangeNotifier](https://api.flutter.dev/flutter/foundation/ChangeNotifier-class.html) from the Flutter framework that can be used to implement the Observable State Tree pattern which you can read about [here](https://jonathanaird.medium.com/observable-state-trees-a-state-management-pattern-for-flutter-2e5e1c5bc46a). Instead of maintaining a list of callbacks, ChangeEmitters use a stream of Change objects which can contain specific information about changes and are easier to manipulate. Comes with a handful of basic ChangeEmitters that you can combine to create your own state abstractions and a minimalistic reimplementation of the [Provider package](https://github.com/rrousselGit/provider).
+A state management library for Flutter
+
+## Yet Another State Management Library
+Why does the world need another state management library? 
+
+Rather than trying to solve everyone's problems, this library is specifically designed for implementing the observable state tree pattern. You can read more about the OST pattern and its advantages [here](OST.md).
 
 ## Installation  
 To use ChangeEmitter, add it to your dependencies in your pubspec.yaml: 
@@ -15,9 +19,10 @@ To get started quickly, please check out the [example](https://github.com/jonair
  
 And the [API documentation](https://pub.dev/documentation/change_emitter/latest/change_emitter/change_emitter-library.html)
 
-### Built in ChangeEmitters
-  
-Comes with ChangeEmitters for basic primitives and a way to compose them.
+## ChangeEmitters
+A `ChangeEmitter` is like a ChangeNotifier from the Flutter framework except that it exposes a stream of change objects which provide details about a change rather than holding onto a list of callbacks. This allows you to perform an action based on the specific change in question. For example if a `ValueEmitter` stores an `int`, you could cause a listener to react differently based on whether the new value is greater than or less than the old value.
+
+This library comes with ChangeEmitters for basic primitives and a way to compose them.
 
 ValueEmitter:  
 ```
@@ -45,16 +50,19 @@ ListEmitter:
 //Holds a list of elements  
 var intList = ListEmitter([1,3,5]);  
 
-intList.addAll([2,8,10]);
-intList.retainWhere((element)=>element%2==0);  
-  
-var subscription = intList.notifications.listen((change)=>print('changed'));
+var subscription = intList.changes.listen((change)=>print('changed'));
 
-//ListEmitter will only emit changes when you call emit but will
-//only do so if there has actually been a change.
-//This allows you to perform multiple changes to the list before updating your UI
-intList.emit();  //prints 'changed'
-intList.emit();  //does nothing
+intList.addAll([2,8,10]); //prints 'changed'
+intList.retainWhere((element)=>element%2==0); //prints 'changed'
+
+//you can make multiple changes while only emitting a change once using transactions
+
+intList.startTransaction();
+intList.addAll([1,2,3]);
+intList[0]=10;
+intList.endTransaction(); //prints 'changed'
+
+
 subscription.cance();
 intList.dispose();  
 ```  
@@ -65,7 +73,6 @@ MapEmitter:
 var colorMap = MapEmitter<String,Color>({});  
 
 colorMap['red']=Colors.red;  
-colorMap.emit();  
   
 colorMap.dispose();
 ```  
@@ -81,34 +88,24 @@ class TextState extends EmitterContainer {
   final italic = ValueEmitter(false);  
   final color = ValueEmitter<Color>(Colors.red);  
     
-  //Override this getter with list of all ChangeEmitters defined in this class.  
+  //Override this getter with a set of all ChangeEmitters defined in this class.  
   //This has three functions. First, all of the elements will be disposed  
-  //when this class is disposed (convenient!). Second, this class 
+  //when this class is disposed. Second, this class 
   //will also emit a change whenever a child changes. Third, children will
   //have access to [this] as a parent and be able to use findAncestorOfExactType<T>()
   @override  
-  get children => [text, bold, italic, color];  
+  get children => {text, bold, italic, color};  
   
-  //If you just want a subset of children to notify listeners you can optionally override this getter.   
+  //If you just want a subset of children or even other ChangeEMitters to notify listeners you can optionally override this getter.   
   //@override  
-  //get emittingChildren => [text, bold];  
+  //get dependencies => {text, bold};  
 }  
   
 var myTextState = TextState();  
   
-var subscription = myTextState.changes.listen((notif)=>'changed!');  
+var subscription = myTextState.changes.listen((change)=>'changed!');  
   
 myTestState.italic.value = true;  //prints 'changed!'
-  
-//We can notify listeners without changing any children:  
-myTextState.emit(); //prints 'changed!' 
-  
-//We can also change one of the children's values without causing the container to emit a change.
-//The child will still emit a change however:  
-myTextState.bold.quietSet(true); //nothing printed to the console but will cause listeners of 'bold' to fire
-  
-//You can do this for ListEmitter/Map/Containers as well
-//someListEmitter.emit(quiet: true);
   
 //dispose of resources. 
 subscription.cancel();
